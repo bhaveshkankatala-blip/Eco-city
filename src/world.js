@@ -910,6 +910,7 @@ function computeEnv(time) {
   [world.pines, world.rounds, propsMesh].forEach(m => { if (m) m.tint = mixc(grass, [1, 1, 1], 0.15); });
   if (world.water) world.water.model = M4.trs(0, -0.43 + 0.33 * clamp(envS.wf, 0, 1) - 0.06 * dr, 0, 0, 1);
   if (world.river) world.river.model = world.water ? world.water.model : M4.id();
+  if (dashMesh) dashMesh.tint = mixc([1, 1, 1], [0.5, 0.45, 0.5], night);
   if (uMesh) uMesh.emit = 0.45 + 0.35 * Math.sin(time / 380);
   return pe;
 }
