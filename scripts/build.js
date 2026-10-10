@@ -24,6 +24,9 @@ if (fs.existsSync(cj)) {
   const json = JSON.parse(fs.readFileSync(cj, 'utf8')); // throws on bad JSON so a broken pack never ships
   content = 'window.ECO_CONTENT_OVERRIDE=' + JSON.stringify(json).replace(/</g, '\\u003c') + ';\n' + content;
 }
+// event-day settings baked into the build (e.g. the Google Sheet link): src/config.json
+const cfg = path.join(root, 'src', 'config.json');
+if (fs.existsSync(cfg)) content = 'window.ECO_CONFIG=' + JSON.stringify(JSON.parse(fs.readFileSync(cfg, 'utf8'))).replace(/</g, '\\u003c') + ';\n' + content;
 if (!html.includes('/*CONTENT*/')) throw new Error('src/index.html is missing the /*CONTENT*/ placeholder');
 html = html.replace('/*CONTENT*/', () => content);
 if (!html.includes('/*ENGINE*/') || !html.includes('/*GAME*/')) throw new Error('src/index.html is missing the /*ENGINE*/ or /*GAME*/ placeholder');

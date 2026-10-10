@@ -586,6 +586,8 @@ body { background: #9cc9e6; }
             <div class="field"><label for="sJump">Years between Level 1 and 2 (5–10)</label><input id="sJump" type="number" min="5" max="10"></div>
             <div class="field"><label for="sPause">Seconds to decide at each stop (final run gets two thirds)</label><input id="sPause" type="number" min="20" max="180"></div>
             <div class="field"><label for="sPin">Organiser PIN</label><input id="sPin" type="text" maxlength="12" autocomplete="off"></div>
+            <div class="field"><label for="sSheet">Google Sheet link (Apps Script web app URL)</label><input id="sSheet" type="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec"></div>
+            <div class="field"><label for="sLaptop">This laptop's name (shown in the sheet)</label><input id="sLaptop" type="text" maxlength="30" autocomplete="off"></div>
           </div>
           <div class="row2"><button class="btn primary" type="submit">Save settings</button><span class="lead" id="setMsg" style="align-self:center"></span></div>
         </form>

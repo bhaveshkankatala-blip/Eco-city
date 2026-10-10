@@ -19,7 +19,9 @@ function eventDef(id) {
 /* =========================================================
    Settings + results store (Claude db when hosted there, local otherwise)
    ========================================================= */
-const DEFAULTS = { t1: 15, t2: 8, t3: 8, jump: 8, pauseSec: 90, finalPauseSec: 60, pin: '2026' };
+// sheetUrl: the Google Apps Script web app (tools/google-sheet). Baked in at build time when known.
+const DEFAULTS = { t1: 15, t2: 8, t3: 8, jump: 8, pauseSec: 90, finalPauseSec: 60, pin: '2026', sheetUrl: '', sheetKey: 'ecocity-2026' };
+Object.assign(DEFAULTS, window.ECO_CONFIG || {});
 let settings = Object.assign({}, DEFAULTS);
 let db = null, dbReady = false;
 const LS = {
@@ -45,13 +47,47 @@ async function saveResult(rec) {
   const p = LS.get('pending', []); p.push(rec); LS.set('pending', p);
   return db ? 'pending' : 'local';
 }
-// Duplicate team names: checked against every result this store knows about. (The Google Sheet check plugs in here.)
-async function teamNameTaken(name) {
-  const n = name.trim().toLowerCase();
-  const local = LS.get('results', []).concat(LS.get('teams', []));
-  if (local.some(r => (r.team || '').trim().toLowerCase() === n)) return true;
-  if (db) { try { const q = await db.collection('results').get(); if (q.docs.some(d => ((d.data().team) || '').trim().toLowerCase() === n)) return true; } catch (e) {} }
-  return false;
+/* Live Google Sheet for the organisers. Every call is a GET (no CORS preflight); calls that fail
+   wait in a queue on this laptop and are retried, in order, every 20 seconds. */
+function sheetOn() { return /^https:\/\/script\.google(usercontent)?\.com\//.test(settings.sheetUrl || ''); }
+async function sheetCall(params) {
+  const q = new URLSearchParams(Object.assign({ key: settings.sheetKey || '' }, params));
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 9000);
+  try {
+    const r = await fetch(settings.sheetUrl + '?' + q.toString(), { signal: ctl.signal, redirect: 'follow' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'sheet error');
+    return j;
+  } finally { clearTimeout(t); }
+}
+let flushing = false;
+async function sheetFlush() {
+  if (flushing || !sheetOn()) return;
+  flushing = true;
+  try {
+    let q = LS.get('sheetq', []);
+    while (q.length) {
+      try { await sheetCall(q[0]); } catch (e) { if (/unknown game id|bad key/.test(e.message)) { /* drop a call the sheet can never accept */ } else break; }
+      q.shift(); LS.set('sheetq', q);
+    }
+  } finally { flushing = false; updateDbStatus(); }
+}
+function sheetSend(params) { if (!sheetOn()) return; const q = LS.get('sheetq', []); q.push(params); LS.set('sheetq', q); sheetFlush(); }
+setInterval(sheetFlush, 20000);
+function laptopName() { let n = LS.get('laptop', ''); if (!n) { n = 'Laptop-' + Math.random().toString(36).slice(2, 6).toUpperCase(); LS.set('laptop', n); } return n; }
+
+// Duplicate team names are rejected. The same team (same lead roll number) may play again; it is marked as a repeat.
+async function teamNameCheck(name, roll) {
+  const n = name.trim().toLowerCase(), rl = roll.trim().toLowerCase();
+  const same = LS.get('teams', []).concat(LS.get('results', [])).filter(r => (r.team || '').trim().toLowerCase() === n);
+  let res = { taken: same.some(r => (r.roll || '').trim().toLowerCase() !== rl), repeat: same.length > 0 };
+  if (sheetOn()) {
+    try { const j = await sheetCall({ action: 'check', team: name, roll }); res = { taken: !!j.taken, repeat: !!j.repeat || res.repeat }; }
+    catch (e) { res.offline = true; }
+  } else if (db) {
+    try { const q = await db.collection('results').get(); q.docs.forEach(d => { const r = d.data(); if ((r.team || '').trim().toLowerCase() === n) { if ((r.roll || '').trim().toLowerCase() !== rl) res.taken = true; res.repeat = true; } }); } catch (e) {}
+  }
+  return res;
 }
 
 /* =========================================================
@@ -63,13 +99,16 @@ let ui = { tool: null, sel: null, selTile: -1, hover: -1, tab: 'agri', size: 1, 
 function persist() { if (S && !S.over) LS.set('game', { S }); }
 function levelMinutes(l) { return +(l === 1 ? S.cfg.t1 : l === 2 ? S.cfg.t2 : S.cfg.t3); }
 
-function newGame(team, roll, phone) {
+function newGame(team, roll, phone, repeat) {
   const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
   S = E.newGame(seed, team);
   S.roll = roll; S.phone = phone;
   S.cfg = { t1: settings.t1, t2: settings.t2, t3: settings.t3, jump: settings.jump, pauseSec: settings.pauseSec, finalPauseSec: settings.finalPauseSec };
   S.deadline = Date.now() + levelMinutes(1) * 60000;
   S.startedAt = new Date().toISOString();
+  S.gameId = 'g' + seed.toString(36) + Date.now().toString(36);
+  S.repeat = !!repeat;
+  sheetSend({ action: 'start', id: S.gameId, team, roll, phone, laptop: laptopName(), startedAt: S.startedAt, repeat: repeat ? '1' : '' });
   ui.tool = null; ui.sel = null; ui.selTile = -1; ui.size = 1; ui.path = 0;
   const teams = LS.get('teams', []); teams.push({ team, roll, startedAt: S.startedAt }); LS.set('teams', teams);
   if (has3D) { R3.orbit(false); R3.load(S); R3.grid(false); R3.select(null); }
@@ -562,6 +601,7 @@ $('finishBtn').onclick = () => {
 };
 function finishLevel() {
   if (S.phase !== 'plan') return;
+  sheetSend({ action: 'update', id: S.gameId, status: 'Playing', level: S.level < 3 ? 'Time jump after L' + S.level : 'Final run', year: S.year });
   ui.tool = null; ui.sel = null; ui.selTile = -1; guide = null; showGuideStep(); $('fpick').hidden = true;
   if (S.level === 1) runSim({ years: S.cfg.jump, mode: 'grow', title: 'Level 1 → Level 2', lead: S.cfg.jump + ' years pass. Couples start their families.', next: () => goLevel(2) });
   else if (S.level === 2) { S.jumpStart = S.year; runSim({ years: 50, mode: 'dyn', phase: 'jump2', title: 'Level 2 → Level 3', lead: '50 years pass, with a stop every 10 years.', next: () => goLevel(3) }); }
@@ -569,6 +609,7 @@ function finishLevel() {
 }
 function goLevel(l) {
   E.startLevel(S, l);
+  sheetSend({ action: 'update', id: S.gameId, status: 'Playing', level: 'Level ' + l, year: S.year });
   S.deadline = Date.now() + levelMinutes(l) * 60000;
   ui.tab = l === 2 ? 'housing' : 'services';
   setView('plan'); if (has3D) R3.orbit(false);
@@ -747,11 +788,13 @@ async function showResult() {
   setView('result'); if (has3D) R3.orbit(true);
   $('resultScreen').hidden = false;
   $('resSaved').textContent = 'Sending your result to the organisers…';
-  const rec = { id: 'r' + S.seed + '-' + Date.now().toString(36), team: S.team, roll: S.roll || '', phone: S.phone || '', score: r.score, years: r.years, alive: r.alive, why: r.why || '', pop: r.pop, sdg: r.sdg, cap: E.CAP_YEARS, startedAt: S.startedAt, finishedAt: new Date().toISOString(), buildings: Object.keys(S.buildings).length };
+  const rec = { id: 'r' + S.seed + '-' + Date.now().toString(36), gameId: S.gameId, repeat: !!S.repeat, team: S.team, roll: S.roll || '', phone: S.phone || '', score: r.score, years: r.years, alive: r.alive, why: r.why || '', pop: r.pop, sdg: r.sdg, cap: E.CAP_YEARS, startedAt: S.startedAt, finishedAt: new Date().toISOString(), buildings: Object.keys(S.buildings).length };
   if (!S.saved) {
     S.saved = true;
+    sheetSend({ action: 'end', id: S.gameId, score: r.score.toFixed(1), years: r.years, fate: r.alive ? 'Thriving' : 'Dead planet: ' + (r.whyText || r.why || ''), pop: Math.round(r.pop), finishedAt: rec.finishedAt, sdg: JSON.stringify(Object.fromEntries(Object.entries(r.sdg).map(([k, v]) => [k, Math.round(v)]))) });
     const how = await saveResult(rec);
-    $('resSaved').textContent = how === 'shared' ? 'Your result has been sent to the organisers. Well done!' : 'Your result is saved on this laptop and will reach the organisers when it reconnects.';
+    const queued = sheetOn() && LS.get('sheetq', []).length;
+    $('resSaved').textContent = how === 'shared' || (sheetOn() && !queued) ? 'Your result has been sent to the organisers. Well done!' : 'Your result is saved on this laptop and will reach the organisers when it reconnects.';
   } else $('resSaved').textContent = 'Your result has been recorded.';
   LS.del('game');
 }
@@ -806,12 +849,13 @@ $('startForm').addEventListener('submit', async e => {
   if (!roll) return err('Enter the team lead\'s roll number.');
   if (phone.length !== 10) return err('Enter a 10-digit phone number.');
   $('startGo').disabled = true; $('startGo').textContent = 'Checking…';
-  const taken = await teamNameTaken(name);
+  const chk = await teamNameCheck(name, roll);
   $('startGo').disabled = false; $('startGo').textContent = 'Start Level 1';
-  if (taken) return err('"' + name + '" is already taken. Please choose another team name.');
+  if (chk.taken) return err('"' + name + '" is already taken by another team. Please choose another team name.');
   LS.del('game');
   $('startScreen').hidden = true;
-  newGame(name, roll, phone);
+  newGame(name, roll, phone, chk.repeat);
+  if (chk.repeat) toast('Welcome back, ' + name + '. This game is marked as a repeat.');
 });
 function renderSdgPage() {
   const s = C.sdg;
@@ -840,7 +884,7 @@ $('pinForm').addEventListener('submit', e => {
 let lbUnsub = null, lbRows = [];
 function openOrg() {
   $('orgScreen').hidden = false; seg('lb');
-  $('sT1').value = settings.t1; $('sT2').value = settings.t2; $('sT3').value = settings.t3; $('sJump').value = settings.jump; $('sPause').value = settings.pauseSec; $('sPin').value = settings.pin;
+  $('sT1').value = settings.t1; $('sT2').value = settings.t2; $('sT3').value = settings.t3; $('sJump').value = settings.jump; $('sPause').value = settings.pauseSec; $('sPin').value = settings.pin; $('sSheet').value = settings.sheetUrl || ''; $('sLaptop').value = laptopName();
   $('gameInfo').textContent = S ? 'Current game: ' + S.team + ', Level ' + S.level + ', city year ' + S.year + '.' : 'No game in progress.';
   updateDbStatus();
   if (db && !lbUnsub) lbUnsub = db.collection('results').onSnapshot(snap => { lbRows = snap.docs.map(d => Object.assign({ _id: d.id }, d.data())); renderLb(); }, () => { lbUnsub = null; lbRows = LS.get('results', []); renderLb(); });
@@ -849,7 +893,9 @@ function openOrg() {
 }
 function updateDbStatus() {
   const el = $('dbStatus'); if (!el) return;
-  el.textContent = !dbReady ? 'Connecting…' : db ? 'Live leaderboard: results from every laptop appear here as teams finish.' : 'This laptop only: showing results saved here. The shared Google Sheet leaderboard is set up separately.';
+  const q = LS.get('sheetq', []).length;
+  el.textContent = !dbReady ? 'Connecting…' : (db ? 'Live leaderboard: results from every laptop appear here as teams finish.' : 'Showing results saved on this laptop.') +
+    (sheetOn() ? ' Google Sheet: ' + (q ? q + ' update' + (q > 1 ? 's' : '') + ' waiting to send.' : 'connected, all sent.') : ' Google Sheet: not set up (Game settings).');
 }
 function renderLb() {
   const rows = lbRows.slice().sort((a, b) => b.score - a.score || b.years - a.years);
@@ -871,8 +917,10 @@ $('orgClose').onclick = () => { $('orgScreen').hidden = true; };
 $('setForm').addEventListener('submit', async e => {
   e.preventDefault();
   const n = (id, lo, hi, d) => clamp(Math.round(+$(id).value || d), lo, hi);
-  settings = { t1: n('sT1', 1, 60, 15), t2: n('sT2', 1, 60, 8), t3: n('sT3', 1, 60, 8), jump: n('sJump', 5, 10, 8), pauseSec: n('sPause', 20, 180, 90), finalPauseSec: Math.round(n('sPause', 20, 180, 90) * 2 / 3), pin: ($('sPin').value.trim() || '2026').slice(0, 12) };
-  LS.set('settings', settings); applySettingsText();
+  settings = { t1: n('sT1', 1, 60, 15), t2: n('sT2', 1, 60, 8), t3: n('sT3', 1, 60, 8), jump: n('sJump', 5, 10, 8), pauseSec: n('sPause', 20, 180, 90), finalPauseSec: Math.round(n('sPause', 20, 180, 90) * 2 / 3), pin: ($('sPin').value.trim() || '2026').slice(0, 12), sheetUrl: $('sSheet').value.trim(), sheetKey: settings.sheetKey || DEFAULTS.sheetKey };
+  if ($('sLaptop').value.trim()) LS.set('laptop', $('sLaptop').value.trim().slice(0, 30));
+  LS.set('settings', settings); applySettingsText(); sheetFlush();
+  if (settings.sheetUrl && !sheetOn()) { $('setMsg').textContent = 'That Google Sheet link does not look right: it should start with https://script.google.com/'; return; }
   let msg = 'Saved on this laptop.';
   if (db) { try { await db.doc('config/settings').set(settings); msg = 'Saved for every laptop. New games use these settings.'; } catch (err) { msg = 'Saved on this laptop only (could not reach the shared store).'; } }
   $('setMsg').textContent = msg;
@@ -880,6 +928,7 @@ $('setForm').addEventListener('submit', async e => {
 $('resetGame').onclick = function () {
   if (!this.dataset.armed) { this.dataset.armed = '1'; this.textContent = 'Click again to confirm'; return; }
   delete this.dataset.armed; this.textContent = "End this team's game without saving";
+  if (S && S.gameId) sheetSend({ action: 'update', id: S.gameId, status: 'Ended by organiser', level: 'Level ' + S.level, year: S.year });
   LS.del('game'); S = null; $('orgScreen').hidden = true; ['simScreen', 'resultScreen', 'eventScreen', 'whatScreen'].forEach(id => $(id).hidden = true); clearTimeout(evTimer); showStart();
 };
 
