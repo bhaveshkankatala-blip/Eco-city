@@ -284,6 +284,102 @@ body { background: #9cc9e6; }
   .brand, .iconbtns { display: none; }
   #stats { display: none; }
 }
+/* ---- v2 additions ---- */
+#pulse { flex: 0 1 300px; min-width: 0; padding: 7px 12px; }
+#pulse .lab { font-size: 11px; text-transform: uppercase; letter-spacing: 1.1px; color: var(--muted); }
+#pulse .pr { display: flex; gap: 14px; margin-top: 2px; }
+#pulse .pr span { display: grid; font-size: 11px; color: var(--muted); line-height: 1.1; }
+#pulse .pr b { font-family: var(--f-display); font-size: 24px; font-weight: 600; }
+#pulse .pb b { color: #7cc7ff; } #pulse .pd b { color: #ff9c90; } #pulse .pt b { color: var(--sun); }
+#news { padding: 0; overflow: hidden; }
+#news .hd { display: flex; gap: 8px; align-items: center; padding: 8px 12px; background: rgba(255,255,255,.05); border-bottom: 1px solid var(--line); }
+#news .hd h3 { margin: 0; font-size: 15px; flex: 1; }
+#news .hd span { font-size: 11px; color: var(--muted); }
+#newsLine { margin: 0; padding: 10px 12px 12px; font-family: var(--f-display); font-size: 16px; line-height: 1.3; min-height: 3.2em; }
+#newsLine.in { animation: newsIn .5s ease-out; }
+@keyframes newsIn { from { transform: translateY(6px); } }
+.stat .v { font-size: 15px; }
+#fpick { position: absolute; left: 50%; transform: translateX(-50%); bottom: 210px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
+#fpick .fl { font-size: 12px; color: var(--muted); }
+#fpick .fc { font-size: 13px; color: var(--sun); font-weight: 600; }
+#fpSizes { display: flex; gap: 4px; }
+#fpSizes button { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise); font-family: var(--f-display); font-weight: 600; }
+#fpSizes button[aria-pressed=true] { background: var(--sun); color: #3a2a00; border-color: transparent; }
+#fpSizes button:disabled { opacity: .3; cursor: not-allowed; }
+#guide { position: absolute; z-index: 35; width: 320px; padding: 14px 16px; border-color: rgba(245,197,68,.6); box-shadow: 0 0 0 3px rgba(245,197,68,.18), 0 16px 40px rgba(0,0,0,.45); left: 50%; transform: translateX(-50%); bottom: 220px; }
+#guide[data-at=finish] { top: 100px; right: 16px; left: auto; bottom: auto; transform: none; }
+#guide[data-at=map] { top: 120px; bottom: auto; }
+#guide .gn { font-size: 11px; color: var(--sun); letter-spacing: 1px; }
+#guide h3 { font-size: 18px; margin: 2px 0 4px; }
+#guide p { margin: 0; font-size: 13px; line-height: 1.45; color: #d6e6e3; }
+.guide-hl { outline: 3px solid var(--sun) !important; outline-offset: 3px; border-radius: 12px; animation: hl 1.4s infinite; }
+@keyframes hl { 50% { outline-color: rgba(245,197,68,.3); } }
+.grid2.tight { gap: 0 10px; } .grid2.tight .field { margin: 0 0 12px; }
+#startForm .field { margin: 12px 0; }
+/* inspector: blocks and upgrade cards */
+#inspector h3 small.lv { font-family: var(--f-body); font-size: 11px; color: var(--sun); font-weight: 500; margin-left: 4px; }
+.blocks { display: flex; gap: 6px; align-items: end; flex-wrap: wrap; margin: 6px 0; }
+.blocks .blk { width: 42px; height: 46px; border-radius: 6px; background: #0b1a24; border: 1px solid var(--line); position: relative; overflow: hidden; display: grid; place-items: end center; }
+.blocks .blk i { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, #6b5a48, #3c2f24); }
+.blocks .blk span { position: relative; font-size: 9.5px; padding-bottom: 2px; }
+.blocks .blk.empty { opacity: .5; }
+.blocks small { flex-basis: 100%; font-size: 10.5px; color: var(--muted); }
+.wkl { font-size: 12px; color: var(--muted); }
+.ups { display: grid; gap: 8px; margin-top: 10px; }
+.upcard { padding: 9px 10px; border-radius: 12px; background: linear-gradient(180deg, #2c5a2f, #1d3f22); border: 2px solid #6bd36f; box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 4px 0 #12301a; }
+.upcard.off { background: linear-gradient(180deg, #26394a, #1b2b39); border-color: rgba(150,205,225,.25); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 4px 0 #0c1822; }
+.upcard.done { background: linear-gradient(180deg, #1f3d4d, #173040); border-color: #3fb5f2; }
+.upcard.flash { animation: upflash .5s; }
+@keyframes upflash { 30% { transform: scale(1.05); filter: brightness(1.5); } }
+.uphead { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.uphead b { font-family: var(--f-display); font-size: 14px; font-weight: 600; flex-basis: 100%; }
+.uphead .lvl { font-family: var(--f-display); font-weight: 700; font-size: 12px; padding: 1px 8px; border-radius: 6px; background: #0b1a24; }
+.uphead .lvl.next { background: var(--sun); color: #3a2a00; }
+.uphead .tick { color: #3fb5f2; font-weight: 700; }
+.upgain { font-size: 12px; color: #d6f5d8; margin: 4px 0 6px; }
+.upwhy { font-size: 11.5px; color: var(--muted); }
+.upbtn { width: 100%; background: linear-gradient(180deg, #ffd65a, #f0a92a); color: #3a2400; border: 0; font-family: var(--f-display); font-weight: 700; font-size: 14px; box-shadow: 0 3px 0 #a86a10; }
+.upbtn:active { transform: translateY(2px); box-shadow: 0 1px 0 #a86a10; }
+/* event dilemma */
+.evsheet { width: min(860px, 100%); padding: 0; display: grid; grid-template-columns: 260px 1fr; overflow: hidden; }
+.evart { background: linear-gradient(160deg, #2a5d7a, #183649) center/cover; min-height: 320px; position: relative; display: grid; place-items: center; }
+.evart svg { position: relative; z-index: 1; filter: drop-shadow(0 8px 18px rgba(0,0,0,.35)); }
+.evart.shock { background-color: #5a2a17; background-image: linear-gradient(160deg, #7a3a1f, #3b1b10); }
+.evart::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.12), transparent 60%); }
+.evbody { padding: 20px 22px; }
+.evtop { display: flex; justify-content: space-between; align-items: center; }
+.evkind { font-size: 11.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--sun); }
+.evclock { font-family: var(--f-display); font-size: 26px; font-weight: 700; padding: 2px 12px; border-radius: 10px; background: #0b1a24; }
+.evclock.hurry { color: var(--danger); animation: pulse 1s infinite; }
+.evbody h2 { font-size: 26px; margin: 6px 0 4px; }
+.evchoices { display: grid; gap: 8px; margin: 14px 0 8px; }
+.evc { text-align: left; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--raise); display: grid; gap: 2px; }
+.evc:hover:not(:disabled) { border-color: var(--sun); background: #20465e; }
+.evc b { font-family: var(--f-display); font-size: 16px; font-weight: 600; }
+.evc span { font-size: 12.5px; color: var(--muted); }
+/* what happened */
+.tstats.wh { grid-template-columns: 1.35fr .8fr .8fr 1fr 1.45fr; }
+.tstats.wh b { font-size: 16px; white-space: nowrap; }
+#whDeaths h4, #whMore h4 { font-family: var(--f-display); font-size: 15px; margin: 14px 0 6px; }
+.why { display: grid; grid-template-columns: 170px 1fr 60px; gap: 10px; align-items: center; font-size: 13px; margin: 4px 0; }
+.why .b { height: 10px; border-radius: 5px; background: rgba(255,255,255,.08); overflow: hidden; }
+.why .b i { display: block; height: 100%; background: #9aa3ad; }
+.why .b i.c-hunger { background: #DDA63A; } .why .b i.c-thirst { background: #26BDE2; } .why .b i.c-poverty { background: #A21942; } .why .b i.c-slums { background: #f28b6b; } .why .b i.c-pollution { background: #c08cf0; }
+.why b { text-align: right; }
+#whMore p, #whMore ul { font-size: 13px; color: #cfe2df; margin: 6px 0; }
+/* SDG page */
+.sdggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 12px; max-height: 62vh; overflow: auto; }
+.sdgcard { display: grid; grid-template-columns: 44px 1fr; gap: 10px; padding: 10px; border-radius: 12px; background: var(--raise); }
+.sdgcard .n { width: 44px; height: 44px; border-radius: 8px; display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; font-size: 20px; color: #fff; }
+.sdgcard b { font-family: var(--f-display); font-size: 15px; }
+.sdgcard p { margin: 2px 0 0; font-size: 12.5px; line-height: 1.4; color: #cfe2df; }
+.sdgcard p.ig { color: var(--muted); } .sdgcard p.ig span { color: var(--leaf); }
+#app[data-view=sim] #pulse, #app[data-view=sim] #fpick { display: none; }
+#app[data-view=start] #fpick, #app[data-view=result] #fpick { display: none; }
+@media (max-width: 1180px) { #pulse .pt { display: none; } }
+@media (max-width: 1440px) { .brand { display: none; } }
+@media (max-height: 900px) { #right:has(#inspector:not([hidden])) #minimapBox { display: none; } }
+@media (max-width: 900px) { .evsheet { grid-template-columns: 1fr; } .evart { min-height: 120px; } .tstats.wh { grid-template-columns: repeat(2, minmax(0,1fr)); } .why { grid-template-columns: 120px 1fr 50px; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
@@ -305,7 +401,7 @@ body { background: #9cc9e6; }
     </div>
     <div id="levelCard" class="panel"><div class="badge" id="lvlBadge">1</div><div style="min-width:0"><h2 id="lvlTitle">Level 1: Foundations</h2><p id="lvlSub"></p></div></div>
     <div id="clock" class="panel"><div class="lab">Time left</div><div class="t num" id="clockT">25:00</div><div class="y num" id="clockY">City year 0</div></div>
-    <div id="objectives" class="panel"><h3 id="objTitle">Objectives</h3><ul id="objList"></ul></div>
+    <div id="pulse" class="panel" title="This year, per 1,000 people"><div class="lab">Per 1,000 people a year</div><div class="pr"><span class="pb"><b class="num" id="pulseB">0</b>births</span><span class="pd"><b class="num" id="pulseD">0</b>deaths</span><span class="pt"><b class="num" id="pulseT">0</b>children per couple</span></div></div>
     <div class="iconbtns">
       <button class="ibtn" id="rulesBtn" title="How to play"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01" stroke-linecap="round"/></svg>Rules</button>
       <button class="ibtn" id="orgBtn" title="Organisers only"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Organiser</button>
@@ -320,9 +416,16 @@ body { background: #9cc9e6; }
 
   <aside id="right">
     <section id="inspector" class="panel" hidden></section>
-    <section id="advisor" class="panel"><div class="hd"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01" stroke-linecap="round"/></svg><h3 id="advTitle">City Advisor</h3></div><ul id="advList"></ul><div id="advEvent"></div></section>
+    <section id="news" class="panel"><div class="hd"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="15" height="16" rx="2"/><path d="M18 8h3v10a2 2 0 0 1-2 2M7 8h7M7 12h7M7 16h4" stroke-linecap="round"/></svg><h3>Island Times</h3><span id="newsDate" class="num"></span></div><p id="newsLine"></p></section>
     <section id="minimapBox" class="panel"><h3>Mini Map</h3><div class="row"><canvas id="minimap" width="120" height="120"></canvas><div class="legend" id="legend"></div></div></section>
   </aside>
+
+  <div id="fpick" class="panel" hidden>
+    <span class="fl">Blocks</span><div id="fpSizes"></div>
+    <button class="btn" id="fpNext" title="Try another shape (R)">Next path</button><span id="fpPath" class="fl"></span><span id="fpCost" class="fc num"></span>
+  </div>
+
+  <div id="guide" class="panel" hidden><div class="gn" id="guideN"></div><h3 id="guideT"></h3><p id="guideX"></p><div class="row2"><button class="btn ghost" id="guideSkip">Skip guide</button><button class="btn primary" id="guideNext">Next</button></div></div>
 
   <section id="build">
     <div id="tabs" role="tablist"></div>
@@ -339,16 +442,19 @@ body { background: #9cc9e6; }
         <svg width="58" height="58" viewBox="0 0 48 48" aria-hidden="true"><path d="M8 40C6 22 18 8 42 6c1 22-12 35-30 34" fill="#3fbf55"/><path d="M8 40C16 30 24 22 34 14" stroke="#d8ffd9" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
         <div><h1>EcoCity</h1><div class="tagline">Build to last</div></div>
       </div>
-      <p class="pitch">Plan a city on a floating island, then watch it live for up to <span id="capTxt">500</span> years. Cities that burn through their resources or choke on pollution become dead planets. Your team is ranked on the UN Sustainable Development Goals.</p>
+      <p class="pitch" id="pitch"></p>
       <form id="startForm">
-        <div class="field"><label for="teamName">Team name</label><input id="teamName" maxlength="40" autocomplete="off" placeholder="e.g. Green Builders" required></div>
-        <div class="row2"><button class="btn primary big" type="submit">Start Level 1</button><button class="btn big ghost" type="button" id="startRules">How to play</button></div>
+        <div class="field"><label for="teamName">Team name</label><input id="teamName" maxlength="40" autocomplete="off" placeholder="e.g. Green Builders"></div>
+        <div class="grid2 tight"><div class="field"><label for="teamRoll">Team lead roll number</label><input id="teamRoll" maxlength="20" autocomplete="off" placeholder="e.g. 23CSB0A12"></div>
+        <div class="field"><label for="teamPhone">Phone number</label><input id="teamPhone" maxlength="14" inputmode="numeric" autocomplete="off" placeholder="10 digits"></div></div>
+        <p class="lead" id="startErr" hidden style="color:#ff9c90;margin:0 0 8px"></p>
+        <div class="row2"><button class="btn primary big" type="submit" id="startGo">Start Level 1</button><button class="btn big ghost" type="button" id="startRules">How to play</button><button class="btn big ghost" type="button" id="startSdg">The 11 goals</button></div>
       </form>
       <div id="resumeBox" hidden style="margin-top:12px"></div>
       <ol class="levels3">
-        <li><b>Foundations</b><span><span id="l1t">25 min</span> · 10×10 land. Free to build; land, workers and water are not.</span></li>
-        <li><b>Grow</b><span><span id="l2t">8 min</span> · Land grows 1.5×. Spend your earnings on homes, clean energy and schools.</span></li>
-        <li><b>Plan for the future</b><span><span id="l3t">10 min</span> · Prepare for drought, famine and a changing population.</span></li>
+        <li><b>Foundations</b><span><span id="l1t">15 min</span> · Free to build. Plan for the children who will be born, not just today's 1,000.</span></li>
+        <li><b>Grow</b><span><span id="l2t">8 min</span> · Bigger land, real money, upgrades. Then 50 years pass, with a decision every 10.</span></li>
+        <li><b>Build to last</b><span><span id="l3t">8 min</span> · Hospitals and the future. Then your city runs alone to year 500.</span></li>
       </ol>
       <button type="button" class="linkbtn" id="startOrg">Organisers</button>
     </div>
@@ -359,21 +465,21 @@ body { background: #9cc9e6; }
       <h2>How to play</h2>
       <div class="rules">
         <h3>The goal</h3>
-        <p>Build a city that meets its people's needs today without using up what the future needs. After Level 3 your city runs on its own until it collapses or reaches the year limit. Your score is the average of 11 SDG scores across every simulated year.</p>
+        <p>1,000 people live on your island: 300 children, 600 adults and 100 elderly. Build a city that keeps them, and their children's children, fed and safe until year 500. Your score is the average of 11 UN goals across every year your city lives.</p>
         <h3>Building</h3>
-        <ul><li>Pick a building from the bar at the bottom, then click a block on the map.</li><li>Factories only go on their own deposit: coal factory on the 3-block coal deposit, gold factory on gold, the nuclear plant on the 4-block uranium deposit, mines on natural-resource blocks.</li><li>Every building needs water to construct and to run. The reservoir (water level) refills each year from the river.</li><li>Level 1 is free to build. From Level 2 you pay with the money your city earned.</li></ul>
-        <h3>Workers</h3>
-        <p>60% of your people can work. Each building needs a minimum number of workers to run and works best at its maximum. When you run short, power stations get workers first, then food, water, services and industry.</p>
-        <h3>Between levels</h3>
-        <p>Level 1 → 2 jumps <span class="jy">8</span> years with a fixed birth and death rate. Level 2 → 3 jumps 50 years, and now your planning decides growth: hunger, thirst, pollution, crowding and unemployment shrink the population; food, homes, hospitals and jobs let it grow.</p>
+        <ul><li>Pick a building from the bar at the bottom, then click a block on the map.</li><li>Coal, gold, uranium and mineral blocks are scattered. Click one to see how much is in it. A factory covers 1 or more connected blocks: choose the size and press <b>Next path</b> (or R) to change the shape.</li><li>Farms and other buildings may use spare resource blocks, but to mine there later you must demolish them first.</li><li>Level 1 is free. From Level 2 you pay with the money your city earned, and can upgrade factories (one more block) and homes (rooftop solar, rainwater harvesting).</li></ul>
+        <h3>People</h3>
+        <p>Adults work; children eat but do not work; the elderly need care. Couples have 2 to 4 children: more when food and water are plentiful, fewer as schools and hospitals spread. People die of old age, and many more die of hunger, thirst, poverty (no work), slums (no homes) and polluted air. Hospitals help. Nobody moves to the island.</p>
+        <h3>Rain</h3>
+        <p>Rain comes from your city: forests and empty land bring it, pollution drives it away. Farms, dams and rivers depend on it.</p>
+        <h3>Time</h3>
+        <p>After Level 1, <span class="jy">8</span> years pass. After Level 2, 50 years pass with a stop every 10 years: something happens and you have 90 seconds to choose. After Level 3 the city runs alone to year 500 with five big moments. Every team faces the same four shocks (monsoon failure, heatwave, disease, a fuel price crash) in a different order.</p>
         <h3>A city dies when</h3>
-        <ul><li>its population reaches zero,</li><li>food or water stays short for 8 years in a row (overpopulation and resource depletion), or</li><li>pollution stays above 75% for 10 years in a row.</li></ul>
-        <h3>Things that run out</h3>
-        <p>Coal lasts about 30 years, gold about 60, natural-resource mines about 80 and uranium about 300 at full output. Sun, wind, rivers and well-managed farms never run out.</p>
-        <h3>Scoring</h3>
-        <p>SDG 2 Zero Hunger, 3 Health, 4 Education, 6 Water, 7 Clean Energy, 8 Decent Work, 9 Infrastructure, 11 Sustainable Cities (homes, green space and how long the city lasted), 12 Responsible Consumption, 13 Climate Action and 15 Life on Land. Ties are broken by years survived.</p>
+        <ul><li>nobody is left,</li><li>food or water stays short for 8 years in a row, or</li><li>pollution stays above 75% for 10 years in a row.</li></ul>
+        <h3>Reading your city</h3>
+        <p>The numbers on the left are this year's reality. A number turns red only when something is failing right now. The Island Times reports what people are saying. Nobody will tell you what to build.</p>
       </div>
-      <div class="row2" style="justify-content:flex-end"><button class="btn primary" id="rulesClose">Got it</button></div>
+      <div class="row2" style="justify-content:flex-end"><button class="btn" id="rulesSdg">The 11 goals</button><button class="btn primary" id="rulesClose">Got it</button></div>
     </div>
   </div>
 
@@ -399,6 +505,40 @@ body { background: #9cc9e6; }
         <div class="simC"><div class="log" id="simLog"></div>
         <div class="row2 simBtns"><button class="btn" id="simSkip">Skip ahead</button><button class="btn primary big" id="simNext" hidden>Continue</button></div></div>
       </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="eventScreen" hidden>
+    <div class="sheet evsheet">
+      <div class="evart" id="evArt"></div>
+      <div class="evbody">
+        <div class="evtop"><span class="evkind" id="evKind"></span><span class="evclock num" id="evClock">1:30</span></div>
+        <h2 id="evTitle"></h2>
+        <p id="evText"></p>
+        <div class="evchoices" id="evChoices"></div>
+        <p class="lead" style="font-size:12px">Discuss with your team. If time runs out, the last choice is taken.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="whatScreen" hidden>
+    <div class="sheet" style="width:min(720px,100%)">
+      <p class="lead" style="margin:0;text-transform:uppercase;letter-spacing:2px;font-size:11.5px">What happened</p>
+      <h2 id="whTitle"></h2>
+      <p class="lead" id="whSub"></p>
+      <div class="tstats wh" id="whStats"></div>
+      <div id="whDeaths"></div>
+      <div id="whMore"></div>
+      <div class="row2" style="justify-content:flex-end"><button class="btn primary big" id="whNext">Continue</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="sdgScreen" hidden>
+    <div class="sheet" style="width:min(980px,100%)">
+      <h2>The 11 goals your city is scored on</h2>
+      <p class="lead" id="sdgIntro"></p>
+      <div class="sdggrid" id="sdgGrid"></div>
+      <div class="row2" style="justify-content:flex-end"><button class="btn primary" id="sdgClose">Close</button></div>
     </div>
   </div>
 
@@ -440,11 +580,11 @@ body { background: #9cc9e6; }
       <div id="paneSet" hidden>
         <form id="setForm">
           <div class="grid2">
-            <div class="field"><label for="sT1">Level 1 time (minutes, 20–30)</label><input id="sT1" type="number" min="1" max="60"></div>
-            <div class="field"><label for="sT2">Level 2 time (minutes, 5–10)</label><input id="sT2" type="number" min="1" max="60"></div>
-            <div class="field"><label for="sT3">Level 3 time (minutes, 5–15)</label><input id="sT3" type="number" min="1" max="60"></div>
+            <div class="field"><label for="sT1">Level 1 time (minutes)</label><input id="sT1" type="number" min="1" max="60"></div>
+            <div class="field"><label for="sT2">Level 2 time (minutes)</label><input id="sT2" type="number" min="1" max="60"></div>
+            <div class="field"><label for="sT3">Level 3 time (minutes)</label><input id="sT3" type="number" min="1" max="60"></div>
             <div class="field"><label for="sJump">Years between Level 1 and 2 (5–10)</label><input id="sJump" type="number" min="5" max="10"></div>
-            <div class="field"><label for="sCap">Year limit for the final run</label><select id="sCap"><option value="500">500 years</option><option value="1000">1000 years</option></select></div>
+            <div class="field"><label for="sPause">Seconds to decide at each stop (final run gets two thirds)</label><input id="sPause" type="number" min="20" max="180"></div>
             <div class="field"><label for="sPin">Organiser PIN</label><input id="sPin" type="text" maxlength="12" autocomplete="off"></div>
           </div>
           <div class="row2"><button class="btn primary" type="submit">Save settings</button><span class="lead" id="setMsg" style="align-self:center"></span></div>
@@ -461,6 +601,9 @@ body { background: #9cc9e6; }
 
 <script>
 /*ENGINE*/
+</script>
+<script>
+/*CONTENT*/
 </script>
 <script>
 /*GAME*/

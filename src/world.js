@@ -130,26 +130,30 @@ const MODELS = {
     gable(g, '#d7d7d2', 0.34, 0.16, -0.38, 0.17, 0.07, 0.23, Math.PI / 2);
   },
   coalPlant(g, fp) {
-    const t = fp.map(([x, z]) => [x, z]);
-    t.forEach(([x, z]) => box(g, '#55524c', x, 0, z, 0.98, 0.03, 0.98));
-    const [a, b, c] = t;
-    // turbine hall with sawtooth roof
-    box(g, '#9aa1a8', a[0], 0.03, a[1], 0.78, 0.42, 0.66);
-    for (let i = 0; i < 3; i++) gable(g, '#5d6670', a[0] - 0.26 + i * 0.26, 0.45, a[1], 0.26, 0.12, 0.66, 0);
-    windowsRing(g, a[0], a[1], 0.78, 0.66, 0.08, 2, 0.15, 4, '#5a7f9e');
-    // boiler house + chimneys
-    box(g, '#8b9096', b[0], 0.03, b[1], 0.56, 0.72, 0.56);
-    box(g, '#6d737a', b[0], 0.75, b[1], 0.4, 0.12, 0.4);
-    const ch = [[b[0] + 0.28, b[1] - 0.28], [b[0] + 0.28, b[1] + 0.22]];
+    // block 0: turbine hall + boiler + chimneys; extra blocks: coal yards linked by conveyors
+    fp.forEach(([x, z]) => box(g, '#55524c', x, 0, z, 0.98, 0.03, 0.98));
+    box(g, '#9aa1a8', -0.14, 0.03, 0.12, 0.62, 0.38, 0.6);
+    for (let i = 0; i < 3; i++) gable(g, '#5d6670', -0.34 + i * 0.2, 0.41, 0.12, 0.2, 0.1, 0.6, 0);
+    windowsRing(g, -0.14, 0.12, 0.62, 0.6, 0.08, 2, 0.14, 3, '#5a7f9e');
+    box(g, '#8b9096', 0.24, 0.03, -0.18, 0.36, 0.62, 0.36);
+    const n = fp.length, ch = n > 1 ? [[0.3, -0.36], [0.3, 0.3]] : [[0.3, -0.36]];
     ch.forEach(([x, z]) => { for (let k = 0; k < 6; k++) g.add('fr:12:0.88', k % 2 ? '#f2f2f2' : '#c4483a', x, 0.03 + k * 0.27, z, 0.1 - k * 0.008, 0.27, 0.1 - k * 0.008); });
-    // coal piles + conveyor
-    cone(g, P.coal, c[0] - 0.15, 0.03, c[1] - 0.1, 0.32, 0.3, 9); cone(g, '#1d1c1b', c[0] + 0.2, 0.03, c[1] + 0.18, 0.24, 0.22, 8);
-    const mx = (b[0] + c[0]) / 2, mz = (b[1] + c[1]) / 2, ang = Math.atan2(c[0] - b[0], c[1] - b[1]);
-    g.add('box', '#6f6a63', mx, 0.32, mz, 0.08, 0.05, 1.0, ang, 0.28);
-    box(g, '#c9a33a', c[0] + 0.32, 0.03, c[1] - 0.3, 0.16, 0.08, 0.1);
+    if (n === 1) { cone(g, P.coal, -0.3, 0.03, -0.3, 0.16, 0.14, 8); }
+    fp.slice(1).forEach(([x, z], q) => {
+      cone(g, P.coal, x - 0.15, 0.03, z - 0.1, 0.32, 0.3, 9); cone(g, '#1d1c1b', x + 0.2, 0.03, z + 0.18, 0.24, 0.22, 8);
+      const [px, pz] = fp[q], mx = (px + x) / 2, mz = (pz + z) / 2, ang = Math.atan2(x - px, z - pz);
+      g.add('box', '#6f6a63', mx, 0.3, mz, 0.08, 0.05, 1.0, ang, 0.25);
+      box(g, '#c9a33a', x + 0.32, 0.03, z - 0.3, 0.16, 0.08, 0.1);
+    });
     return { smoke: ch.map(([x, z]) => [x, 1.72, z, 'dark']) };
   },
-  goldFactory(g) {
+  goldFactory(g, fp) {
+    (fp || []).slice(1).forEach(([x, z], q) => {
+      box(g, '#a3926e', x, 0, z, 0.96, 0.03, 0.96);
+      cyl(g, '#8a7a5a', x, 0.03, z, 0.38, 0.008, 14); cyl(g, '#6e5f43', x, 0.038, z, 0.27, 0.008, 12); cyl(g, '#4d4230', x, 0.046, z, 0.16, 0.008, 10);
+      sph(g, P.gold, x + 0.3, 0.03, z + 0.3, 0.1, 0.08, 8);
+      const [px, pz] = fp[q]; g.add('box', '#6f6a63', (px + x) / 2, 0.2, (pz + z) / 2, 0.06, 0.04, 1.0, Math.atan2(x - px, z - pz), 0.2);
+    });
     box(g, '#a3926e', 0, 0, 0, 0.96, 0.03, 0.96);
     box(g, '#c9b183', -0.12, 0.03, -0.08, 0.56, 0.38, 0.5);
     box(g, P.gold, -0.12, 0.41, -0.08, 0.58, 0.04, 0.52);
@@ -161,26 +165,32 @@ const MODELS = {
     return { smoke: [[0.3, 1.05, -0.3, 'light']] };
   },
   nuclear(g, fp) {
-    const xs = fp.map(p => p[0]), zs = fp.map(p => p[1]);
-    const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
-    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-    box(g, '#bfc4c8', cx, 0, cz, x1 - x0 + 0.98, 0.03, z1 - z0 + 0.98);
-    // cooling tower
-    g.add('lathe:20:0.62,0;0.5,0.4;0.4,0.8;0.37,1.15;0.4,1.5;0.43,1.7', '#eef1f4', x0, 0.03, z0, 1, 1, 1);
-    g.add('lathe:20:0.4,1.5;0.43,1.7', '#c9ced3', x0, 0.031, z0, 1.01, 1, 1.01);
-    // reactor dome
-    cyl(g, '#e3e7ec', x1, 0.03, z0, 0.34, 0.42, 16);
-    sph(g, '#e9edf1', x1, 0.45, z0, 0.34, 0.26, 14);
-    box(g, '#4f7fb0', x1, 0.2, z0, 0.7, 0.04, 0.02 + 0.0);
-    // turbine hall
-    box(g, '#c3cad1', cx + 0.15, 0.03, z1, 0.95, 0.34, 0.5);
-    box(g, '#4f7fb0', cx + 0.15, 0.27, z1 + 0.255, 0.95, 0.05, 0.012);
-    windowsRing(g, cx + 0.15, z1, 0.95, 0.5, 0.06, 1, 0.15, 5, '#6f93b8');
-    // transformer yard
-    for (let i = 0; i < 3; i++) box(g, '#7d858d', x0 - 0.2 + i * 0.16, 0.03, z1 + 0.05, 0.1, 0.14, 0.1);
-    return { smoke: [[x0, 1.75, z0, 'steam']] };
+    // parts in order: reactor dome, cooling tower, turbine hall, transformer yard
+    fp.forEach(([x, z]) => box(g, '#bfc4c8', x, 0, z, 0.98, 0.03, 0.98));
+    const n = fp.length, smoke = [];
+    const [rx, rz] = fp[0];
+    if (n === 1) {
+      cyl(g, '#e3e7ec', rx + 0.12, 0.03, rz + 0.12, 0.26, 0.32, 14); sph(g, '#e9edf1', rx + 0.12, 0.35, rz + 0.12, 0.26, 0.2, 12);
+      g.add('lathe:16:0.62,0;0.5,0.4;0.4,0.8;0.37,1.15;0.4,1.5;0.43,1.7', '#eef1f4', rx - 0.26, 0.03, rz - 0.26, 0.5, 0.6, 0.5);
+      smoke.push([rx - 0.26, 1.06, rz - 0.26, 'steam']);
+      return { smoke };
+    }
+    cyl(g, '#e3e7ec', rx, 0.03, rz, 0.34, 0.42, 16); sph(g, '#e9edf1', rx, 0.45, rz, 0.34, 0.26, 14);
+    const [tx, tz] = fp[1];
+    g.add('lathe:20:0.62,0;0.5,0.4;0.4,0.8;0.37,1.15;0.4,1.5;0.43,1.7', '#eef1f4', tx, 0.03, tz, 1, 1, 1);
+    g.add('lathe:20:0.4,1.5;0.43,1.7', '#c9ced3', tx, 0.031, tz, 1.01, 1, 1.01);
+    smoke.push([tx, 1.75, tz, 'steam']);
+    if (n > 2) { const [hx, hz] = fp[2]; box(g, '#c3cad1', hx, 0.03, hz, 0.8, 0.34, 0.6); box(g, '#4f7fb0', hx, 0.27, hz + 0.305, 0.8, 0.05, 0.012); windowsRing(g, hx, hz, 0.8, 0.6, 0.06, 1, 0.15, 4, '#6f93b8'); }
+    if (n > 3) { const [yx, yz] = fp[3]; for (let i = 0; i < 3; i++) for (let k = 0; k < 2; k++) box(g, '#7d858d', yx - 0.25 + i * 0.25, 0.03, yz - 0.15 + k * 0.3, 0.12, 0.16, 0.12); g.add('lathe:20:0.62,0;0.5,0.4;0.4,0.8;0.37,1.15;0.4,1.5;0.43,1.7', '#eef1f4', yx, 0.03, yz, 0.55, 0.55, 0.55); smoke.push([yx, 0.98, yz, 'steam']); }
+    return { smoke };
   },
-  mineralMine(g) {
+  mineralMine(g, fp) {
+    (fp || []).slice(1).forEach(([x, z]) => {
+      box(g, '#9a8668', x, 0, z, 0.96, 0.03, 0.96);
+      cyl(g, '#8a7457', x, 0.03, z, 0.42, 0.008, 14); cyl(g, '#6f5c45', x, 0.038, z, 0.32, 0.008, 12); cyl(g, '#4f4134', x, 0.046, z, 0.2, 0.008, 10);
+      cone(g, '#a59a8b', x + 0.3, 0.03, z - 0.3, 0.16, 0.14, 7);
+      box(g, '#e0b030', x - 0.28, 0.03, z + 0.3, 0.18, 0.1, 0.12);
+    });
     box(g, '#9a8668', 0, 0, 0, 0.96, 0.03, 0.96);
     cyl(g, '#8a7457', -0.1, 0.03, 0.08, 0.4, 0.008, 14); cyl(g, '#6f5c45', -0.1, 0.038, 0.08, 0.3, 0.008, 12); cyl(g, '#4f4134', -0.1, 0.046, 0.08, 0.19, 0.008, 10);
     // headframe
@@ -634,13 +644,24 @@ function fpOffsets(b) {
   const a = S.tiles[b.tiles[0]];
   return b.tiles.map(i => [S.tiles[i].x - a.x, S.tiles[i].y - a.y]);
 }
+function entrySig(b) { return b.tiles.join(',') + (b.up && b.up.solar ? 's' : '') + (b.up && b.up.rwh ? 'r' : ''); }
 function freeEntry(e) { freeMesh(e.mesh); (e.spin || []).forEach(s => freeMesh(s.mesh)); }
 function makeEntry(b, animate) {
   const a = S.tiles[b.tiles[0]];
   const ctx = b.type === 'dam' ? { damAxis: damAxis(S, b.tiles[0]) } : {};
   const { g, extra } = buildModel(b.type, fpOffsets(b), ctx);
+  const up = b.up || {};
+  if (up.solar) { // a tilted panel array on a frame at the front corner
+    box(g, '#5b636b', 0.3, 0.03, 0.3, 0.03, 0.2, 0.03); box(g, '#5b636b', 0.3, 0.03, 0.16, 0.03, 0.26, 0.03);
+    g.add('box', '#1f3f78', 0.3, 0.22, 0.23, 0.3, 0.02, 0.24, 0, -0.5, 0);
+    g.add('box', '#9fb7d9', 0.3, 0.235, 0.23, 0.3, 0.004, 0.012, 0, -0.5, 0);
+  }
+  if (up.rwh) { // rainwater tank with a down pipe
+    cyl(g, '#2f8fd0', -0.34, 0.03, 0.32, 0.1, 0.22, 12); cyl(g, '#e8f4fb', -0.34, 0.25, 0.32, 0.105, 0.02, 12);
+    box(g, '#c9ced3', -0.34, 0.25, 0.2, 0.025, 0.12, 0.025);
+  }
   const x = tw(a.x), z = tw(a.y);
-  const e = { id: b.id, type: b.type, x, z, extra, tiles: b.tiles.slice(), t0: animate ? performance.now() : 0, on: true };
+  const e = { id: b.id, type: b.type, x, z, extra, tiles: b.tiles.slice(), sig: entrySig(b), t0: animate ? performance.now() : 0, on: true };
   e.mesh = addMesh(g, { model: M4.trs(x, 0, z, 0, animate ? 0.01 : 1) });
   e.spin = (extra.spin || []).map(s => ({ s, mesh: addMesh(rotorGeo(), { cast: false, model: M4.id() }), a: hash(a.x, a.y, 3) * 6 }));
   if (b.type === 'dam') {
@@ -659,7 +680,9 @@ function syncBuildings(animate) {
   for (const b of Object.values(S.buildings)) {
     if (b.type === 'road') continue;
     seen.add(b.id);
-    if (!bmap.has(b.id)) { bmap.set(b.id, makeEntry(b, animate && !b.initial)); scene.shadowDirty = true; if (animate && !b.initial) puffAt(b.tiles, 10); }
+    const old = bmap.get(b.id);
+    if (old && old.sig !== entrySig(b)) { freeEntry(old); if (old.fall) freeMesh(old.fall); bmap.delete(b.id); bmap.set(b.id, makeEntry(b, false)); scene.shadowDirty = true; if (animate) puffAt(b.tiles, 10); continue; }
+    if (!old) { bmap.set(b.id, makeEntry(b, animate && !b.initial)); scene.shadowDirty = true; if (animate && !b.initial) puffAt(b.tiles, 10); }
   }
   for (const [id, e] of bmap) if (!seen.has(id)) { freeEntry(e); if (e.fall) freeMesh(e.fall); bmap.delete(id); scene.shadowDirty = true; const l = labels.get(id); if (l) { l.el.remove(); labels.delete(id); } }
 }
@@ -675,7 +698,7 @@ function syncStatus() {
     e.eff = d.min ? (b._eff || 0) : 1;
     const tint = state === 'ok' ? [1, 1, 1] : state === 'used' ? [0.55, 0.5, 0.46] : [0.58, 0.6, 0.66];
     e.mesh.tint = tint; e.spin.forEach(s => s.mesh.tint = tint);
-    setLabel(id, state === 'ok' ? null : state === 'used' ? 'Deposit used up' : 'Closed · no workers', e);
+    setLabel(id, state === 'ok' ? null : state === 'used' ? 'Resource used up' : 'Closed · no workers', e);
   }
 }
 function setLabel(id, text, e) {
@@ -737,29 +760,27 @@ function syncRoads() {
 /* ---------- deposits & props ---------- */
 function syncDeposits() {
   const parts = [];
-  for (const d of Object.values(S.deposits)) { const built = !!S.tiles[d.tiles[0]].b; parts.push(d.id + ':' + Math.ceil(d.reserve / d.max * 5) + (built ? 'b' : '')); }
+  S.tiles.forEach((t, i) => { if (t.dep) parts.push(i + ':' + Math.ceil((t.res / (t.resMax || 1)) * 5) + (t.b ? 'b' : '')); });
   const key = parts.join('|');
   if (key === sig.dep) return;
   sig.dep = key; freeMesh(depMesh); freeMesh(uMesh); scene.shadowDirty = true;
   const g = new Geo(), ug = new Geo();
   const PATCH = { coal: '#3b3935', gold: '#9e8247', uranium: '#56644b', mineral: '#91846f' };
-  for (const d of Object.values(S.deposits)) {
-    const frac = d.reserve / d.max, built = !!S.tiles[d.tiles[0]].b;
-    d.tiles.forEach((i, q) => {
-      const t = S.tiles[i], x = tw(t.x), z = tw(t.y);
-      box(g, frac <= 0 ? '#4a4540' : PATCH[d.type], x, 0, z, 0.96, 0.02, 0.96);
-      if (built) return;
-      const n = Math.ceil(7 * Math.max(0, frac));
-      for (let k = 0; k < n; k++) {
-        const ox = (hash(i, k, 1) - 0.5) * 0.7, oz = (hash(i, k, 2) - 0.5) * 0.7, s = 0.6 + hash(i, k, 3) * 0.7, ry = hash(i, k, 4) * 6;
-        if (d.type === 'coal') g.add('box', k % 2 ? '#22211f' : '#33312d', x + ox, 0.02, z + oz, 0.13 * s, 0.09 * s, 0.11 * s, ry, 0.3, 0.2);
-        else if (d.type === 'gold') { sph(g, '#7d6a4a', x + ox, 0.04, z + oz, 0.07 * s, 0.05 * s, 6); sph(g, '#f6c93e', x + ox + 0.03, 0.06, z + oz, 0.035 * s, 0.03 * s, 6); }
-        else if (d.type === 'mineral') sph(g, k % 2 ? '#aca08f' : '#8f8372', x + ox, 0.03, z + oz, 0.09 * s, 0.05 * s, 6);
-        else if (d.type === 'uranium') { ug.add('cone:5', '#7dff5a', x + ox, 0.02, z + oz, 0.04 * s, 0.2 * s, 0.04 * s, ry, (hash(i, k, 5) - 0.5) * 0.6, (hash(i, k, 6) - 0.5) * 0.6); sph(g, '#48523f', x + ox, 0.02, z + oz, 0.07 * s, 0.04, 6); }
-      }
-      if (frac <= 0) { cyl(g, '#2f2b27', x, 0.02, z, 0.3, 0.006, 10); }
-    });
-  }
+  S.tiles.forEach((t, i) => {
+    if (!t.dep) return;
+    const type = t.t, frac = t.res / (t.resMax || 1), built = !!t.b, x = tw(t.x), z = tw(t.y);
+    box(g, frac <= 0 ? '#4a4540' : PATCH[type], x, 0, z, 0.96, 0.02, 0.96);
+    if (built) return;
+    const n = Math.ceil(7 * Math.max(0, frac));
+    for (let k = 0; k < n; k++) {
+      const ox = (hash(i, k, 1) - 0.5) * 0.7, oz = (hash(i, k, 2) - 0.5) * 0.7, s = 0.6 + hash(i, k, 3) * 0.7, ry = hash(i, k, 4) * 6;
+      if (type === 'coal') g.add('box', k % 2 ? '#22211f' : '#33312d', x + ox, 0.02, z + oz, 0.13 * s, 0.09 * s, 0.11 * s, ry, 0.3, 0.2);
+      else if (type === 'gold') { sph(g, '#7d6a4a', x + ox, 0.04, z + oz, 0.07 * s, 0.05 * s, 6); sph(g, '#f6c93e', x + ox + 0.03, 0.06, z + oz, 0.035 * s, 0.03 * s, 6); }
+      else if (type === 'mineral') sph(g, k % 2 ? '#aca08f' : '#8f8372', x + ox, 0.03, z + oz, 0.09 * s, 0.05 * s, 6);
+      else if (type === 'uranium') { ug.add('cone:5', '#7dff5a', x + ox, 0.02, z + oz, 0.04 * s, 0.2 * s, 0.04 * s, ry, (hash(i, k, 5) - 0.5) * 0.6, (hash(i, k, 6) - 0.5) * 0.6); sph(g, '#48523f', x + ox, 0.02, z + oz, 0.07 * s, 0.04, 6); }
+    }
+    if (frac <= 0) cyl(g, '#2f2b27', x, 0.02, z, 0.3, 0.006, 10);
+  });
   depMesh = addMesh(g, { flat: 1, cast: true });
   uMesh = ug.p.length ? addMesh(ug, { flat: 1, cast: false, emit: 0.6 }) : null;
 }
@@ -791,7 +812,7 @@ function updateHover() {
   let gk = '';
   if (i >= 0 && tool && tool !== 'inspect' && tool !== 'demolish') {
     A = fp; ca = ok ? '#6dde74' : '#ff5a4a';
-    if (ok && tool !== 'road') gk = tool + ':' + i;
+    if (ok && tool !== 'road') gk = tool + ':' + fp.join(',');
   } else if (i >= 0 && S.tiles[i].b && (tool === 'demolish' || !tool || tool === 'inspect')) {
     A = S.buildings[S.tiles[i].b].tiles; ca = tool === 'demolish' ? '#ff5a4a' : '#ffffff';
   }
@@ -1037,8 +1058,7 @@ const R3 = {
     if (!eng) return null;
     const d = B[type];
     let fp = [[0, 0]];
-    if (type === 'coalPlant') fp = [[0, 0], [1, 0], [2, 0]];
-    if (type === 'nuclear') fp = [[0, 0], [1, 0], [0, 1], [1, 1]];
+    if (type === 'coalPlant' || type === 'nuclear') fp = [[0, 0], [1, 0]];
     const ctx = { damAxis: 'z' };
     const g = new Geo();
     const ground = d.on === 'river' ? '#3a9ad9' : d.on === 'coal' ? '#3b3935' : d.on === 'gold' ? '#9e8247' : d.on === 'uranium' ? '#56644b' : d.on === 'mineral' ? '#91846f' : '#6cbd4a';
