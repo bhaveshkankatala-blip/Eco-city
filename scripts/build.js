@@ -9,6 +9,7 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const src = p => fs.readFileSync(path.join(root, 'src', p), 'utf8');
 const test = process.argv.includes('--test');
+const beta = process.argv.includes('--beta'); // review build: adds the Beta feedback button
 
 let html = src('index.html');
 let game = src('game.js');
@@ -27,6 +28,7 @@ if (fs.existsSync(cj)) {
 // event-day settings baked into the build (e.g. the Google Sheet link): src/config.json
 const cfg = path.join(root, 'src', 'config.json');
 if (fs.existsSync(cfg)) content = 'window.ECO_CONFIG=' + JSON.stringify(JSON.parse(fs.readFileSync(cfg, 'utf8'))).replace(/</g, '\\u003c') + ';\n' + content;
+if (beta) content = 'window.ECO_CONFIG=Object.assign(window.ECO_CONFIG||{},{beta:true});\n' + content;
 if (!html.includes('/*CONTENT*/')) throw new Error('src/index.html is missing the /*CONTENT*/ placeholder');
 html = html.replace('/*CONTENT*/', () => content);
 if (!html.includes('/*ENGINE*/') || !html.includes('/*GAME*/')) throw new Error('src/index.html is missing the /*ENGINE*/ or /*GAME*/ placeholder');
@@ -35,6 +37,6 @@ html = html.replace('/*ENGINE*/', () => engine).replace('/*GAME*/', () => game);
 
 const outDir = path.join(root, 'dist');
 fs.mkdirSync(outDir, { recursive: true });
-const out = path.join(outDir, test ? 'test.html' : 'index.html');
+const out = path.join(outDir, test ? 'test.html' : beta ? 'beta.html' : 'index.html');
 fs.writeFileSync(out, html);
 console.log('Built ' + path.relative(root, out) + ' (' + Math.round(html.length / 1024) + ' KB)');

@@ -776,6 +776,7 @@ const SDG_COL = { 2: '#DDA63A', 3: '#4C9F38', 4: '#C5192D', 6: '#26BDE2', 7: '#F
 async function showResult() {
   S.phase = 'done';
   const r = E.result(S, E.CAP_YEARS);
+  S._score = r.score;
   S.over = true;
   $('resTeam').textContent = S.team;
   const pct = r.score / 100, Cc = 2 * Math.PI * 58;
@@ -931,6 +932,43 @@ $('resetGame').onclick = function () {
   if (S && S.gameId) sheetSend({ action: 'update', id: S.gameId, status: 'Ended by organiser', level: 'Level ' + S.level, year: S.year });
   LS.del('game'); S = null; $('orgScreen').hidden = true; ['simScreen', 'resultScreen', 'eventScreen', 'whatScreen'].forEach(id => $(id).hidden = true); clearTimeout(evTimer); showStart();
 };
+
+/* =========================================================
+   Beta review (only in the review build)
+   ========================================================= */
+const FB = { stars: '', diff: '', time: '' };
+function pills(id, key, opts) {
+  $(id).innerHTML = opts.map(o => '<button type="button" data-v="' + o + '" aria-pressed="' + (FB[key] === o) + '">' + o + '</button>').join('');
+  $(id).onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; FB[key] = b.dataset.v; pills(id, key, opts); };
+}
+function openFeedback() {
+  pills('fbStars', 'stars', ['1 ★', '2 ★', '3 ★', '4 ★', '5 ★']);
+  pills('fbDiff', 'diff', ['Too easy', 'About right', 'Too hard']);
+  pills('fbTime', 'time', ['Too short', 'About right', 'Too long']);
+  $('fbMsg').textContent = ''; $('fbOut').hidden = true;
+  $('fbScreen').hidden = false;
+}
+function reviewText() {
+  const where = S ? (S.over ? 'Finished: SDG score ' + (S._score != null ? S._score.toFixed(1) : '?') + ', city year ' + S.year : 'Stopped at Level ' + S.level + ', city year ' + S.year + ', ' + fmt(S.pop) + ' people') : 'Did not start a game';
+  return ['EcoCity beta review' + ($('fbName').value.trim() ? ' from ' + $('fbName').value.trim() : ''),
+    'Overall: ' + (FB.stars || '-') + ' | Difficulty: ' + (FB.diff || '-') + ' | Time: ' + (FB.time || '-'),
+    'Best part: ' + ($('fbGood').value.trim() || '-'),
+    'Confusing/annoying: ' + ($('fbBad').value.trim() || '-'),
+    'One change: ' + ($('fbIdea').value.trim() || '-'),
+    where].join('\n');
+}
+if (window.ECO_CONFIG && window.ECO_CONFIG.beta) {
+  $('fbBtn').hidden = false; $('resFb').hidden = false;
+  $('fbBtn').onclick = openFeedback; $('resFb').onclick = openFeedback;
+  $('fbClose').onclick = () => { $('fbScreen').hidden = true; };
+  $('fbForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const t = reviewText(), out = $('fbOut');
+    out.value = t; out.hidden = false;
+    const fallback = () => { out.focus(); out.select(); $('fbMsg').textContent = 'Press Ctrl+C to copy the selected text, then paste it in WhatsApp or email.'; };
+    try { navigator.clipboard.writeText(t).then(() => { $('fbMsg').textContent = 'Copied. Paste it in WhatsApp or email to send it. Thank you!'; }, fallback); } catch (err) { fallback(); }
+  });
+}
 
 /* =========================================================
    Boot
