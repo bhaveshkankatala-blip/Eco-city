@@ -386,6 +386,24 @@ body { background: #9cc9e6; }
 .pills button[aria-pressed=true] { background: var(--sun); color: #3a2a00; border-color: transparent; font-weight: 600; }
 #fbForm .field { margin: 10px 0; }
 #fbOut { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: #0b1a24; color: var(--text); font: 12.5px/1.45 var(--f-body); resize: vertical; margin: 6px 0; }
+/* time of day, reservoir, worker assignment */
+.daytime { display: flex; gap: 5px; align-items: center; justify-content: center; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.stat.res .tankbar { grid-column: 2 / 4; position: relative; height: 18px; border-radius: 6px; border: 1.5px solid rgba(63,181,242,.7); background: #0b1a24; overflow: hidden; margin-top: 3px; }
+.tankbar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #6fd0ff, #1f86c8); transition: width .5s; }
+.tankbar i::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 3px; background: rgba(255,255,255,.7); }
+.tankbar.low { border-color: var(--danger); } .tankbar.low i { background: linear-gradient(180deg, #ff9c90, #c4483a); }
+.tankbar span { position: relative; display: block; text-align: center; font-size: 10.5px; line-height: 15px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+.holdchip { width: 100%; margin-top: 6px; padding: 7px 10px; border-radius: 9px; border: 1px solid var(--sun); background: rgba(245,197,68,.14); color: var(--sun); font-size: 12.5px; font-weight: 600; animation: pulse 1.6s infinite; }
+.rapool { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-radius: 10px; background: var(--raise); margin: 10px 0; }
+.rapool b { font-family: var(--f-display); font-size: 24px; color: var(--sun); }
+.ralist { display: grid; gap: 6px; max-height: 46vh; overflow: auto; }
+.rarow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: #0f2333; }
+.rarow.closed { border-color: rgba(239,91,76,.5); }
+.rarow b { font-family: var(--f-display); font-weight: 600; font-size: 14px; display: block; }
+.rarow small { color: var(--muted); font-size: 11.5px; }
+.rarow .add { min-width: 54px; text-align: center; font-weight: 700; color: var(--leaf); }
+.rarow button { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise); font-size: 18px; line-height: 1; }
+.rarow button:disabled { opacity: .3; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
@@ -406,7 +424,7 @@ body { background: #9cc9e6; }
       <div><b>EcoCity</b><small>Build to last</small></div>
     </div>
     <div id="levelCard" class="panel"><div class="badge" id="lvlBadge">1</div><div style="min-width:0"><h2 id="lvlTitle">Level 1: Foundations</h2><p id="lvlSub"></p></div></div>
-    <div id="clock" class="panel"><div class="lab">Time left</div><div class="t num" id="clockT">25:00</div><div class="y num" id="clockY">City year 0</div></div>
+    <div id="clock" class="panel"><div class="lab">Time left</div><div class="t num" id="clockT">25:00</div><div class="y num" id="clockY">City year 0</div><div class="daytime" id="dayTime"></div></div>
     <div id="pulse" class="panel" title="This year, per 1,000 people"><div class="lab">Per 1,000 people a year</div><div class="pr"><span class="pb"><b class="num" id="pulseB">0</b>births</span><span class="pd"><b class="num" id="pulseD">0</b>deaths</span><span class="pt"><b class="num" id="pulseT">0</b>children per couple</span></div></div>
     <div class="iconbtns">
       <button class="ibtn" id="fbBtn" title="Tell us what you think" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H9l-5 4z" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke-linecap="round"/></svg>Feedback</button>
@@ -487,6 +505,17 @@ body { background: #9cc9e6; }
         <p>The numbers on the left are this year's reality. A number turns red only when something is failing right now. The Island Times reports what people are saying. Nobody will tell you what to build.</p>
       </div>
       <div class="row2" style="justify-content:flex-end"><button class="btn" id="rulesSdg">The 11 goals</button><button class="btn primary" id="rulesClose">Got it</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="reallocScreen" hidden>
+    <div class="sheet" style="width:min(640px,100%)">
+      <p class="lead" style="margin:0;text-transform:uppercase;letter-spacing:2px;font-size:11.5px">Workers</p>
+      <h2 id="raTitle">Where should these workers go?</h2>
+      <p class="lead" id="raLead"></p>
+      <div class="rapool"><span>Free workers</span><b class="num" id="raPool">0</b></div>
+      <div class="ralist" id="raList"></div>
+      <div class="row2" style="justify-content:flex-end;flex-wrap:wrap"><button class="btn" id="raAuto">Let the city decide</button><button class="btn primary" id="raDone">Done</button></div>
     </div>
   </div>
 
@@ -612,6 +641,7 @@ body { background: #9cc9e6; }
             <div class="field"><label for="sT3">Level 3 time (minutes)</label><input id="sT3" type="number" min="1" max="60"></div>
             <div class="field"><label for="sJump">Years between Level 1 and 2 (5–10)</label><input id="sJump" type="number" min="5" max="10"></div>
             <div class="field"><label for="sPause">Seconds to decide at each stop (final run gets two thirds)</label><input id="sPause" type="number" min="20" max="180"></div>
+            <div class="field"><label for="sDay">Minutes for one day and night in the game (2–20)</label><input id="sDay" type="number" min="2" max="20"></div>
             <div class="field"><label for="sPin">Organiser PIN</label><input id="sPin" type="text" maxlength="12" autocomplete="off"></div>
             <div class="field"><label for="sSheet">Google Sheet link (Apps Script web app URL)</label><input id="sSheet" type="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec"></div>
             <div class="field"><label for="sLaptop">This laptop's name (shown in the sheet)</label><input id="sLaptop" type="text" maxlength="30" autocomplete="off"></div>

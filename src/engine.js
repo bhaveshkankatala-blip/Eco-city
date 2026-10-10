@@ -40,7 +40,7 @@
     school:     { name: 'School', cat: 'infra', lvl: 2, cost: 80, min: 6, max: 10, energy: 4, edu: 150, maint: 5, pol: 0.2,
                   desc: 'Educates 1,500 people. Educated cities earn more and choose smaller families.' },
     waterPlant: { name: 'Water Treatment', cat: 'infra', lvl: 2, cost: 100, min: 4, max: 8, energy: 15, waterIn: 150, maint: 5, pol: 0,
-                  desc: 'Recycles waste water: +1,500 water a year, whatever the rain.' },
+                  desc: 'Cleans factory waste out of the river and recycles waste water: +1,500 water a year, whatever the rain.' },
 
     dam:        { name: 'Dam', cat: 'energy', lvl: 2, on: 'river', cost: 250, min: 6, max: 10, gen: 150, waterIn: 120, waterCap: 600, maint: 6, renew: true, firm: true, limit: 2,
                   desc: 'Built on the river. Energy, extra water and a bigger reservoir. Weak in dry years. Max 2.' },
@@ -67,6 +67,8 @@
   const SCALED = ['cost', 'upCost', 'bridgeCost', 'cap', 'maint', 'pol', 'energy', 'wB', 'wR', 'min', 'max', 'food', 'econ', 'gen', 'edu', 'waterIn', 'waterCap', 'health', 'foodCap', 'absorb'];
   const B = {};
   for (const [k, d] of Object.entries(BASE)) { B[k] = Object.assign({ id: k }, d); SCALED.forEach(f => { if (d[f] != null) B[k][f] = d[f] * K; }); }
+  // solar, wind and batteries run themselves: one or two people for maintenance (real people, not scaled); a dam needs a small crew
+  [['solar', 1, 2], ['wind', 1, 2], ['battery', 1, 2], ['dam', 4, 8]].forEach(([k, mn, mx]) => { B[k].min = mn; B[k].max = mx; });
   const HOUSING = ['hut', 'house', 'community', 'apartment'];
   // house upgrades, cost before scale
   const HOUSE_UP = {
@@ -460,10 +462,11 @@
     // staffing: power, food, water, health/storage, schools, everything else
     const prio = b => { const d = B[b.type]; return b.type === 'foodFarm' ? 0 : d.gen ? 1 : b.type === 'waterPlant' ? 2 : (b.type === 'hospital' || b.type === 'granary' || b.type === 'battery') ? 3 : b.type === 'school' ? 4 : 5; };
     const staffed = bl.filter(b => B[b.type].min).sort((a, b) => prio(a) - prio(b) || (+a.id.slice(1)) - (+b.id.slice(1)));
-    let left = workforce, want = 0, jobs = 0, unstaffed = 0;
+    // workers freed by a demolition wait (hold) until the player says where they go
+    let left = Math.max(0, workforce - (state.hold || 0)), want = 0, jobs = 0, unstaffed = 0;
     const debtMul = state.debt ? 0.85 : 1;
     bl.forEach(b => { b._road = nearRoad(b); b._live = blocksOf(b); if (!B[b.type].min) { b._eff = 1; b._w = 0; } });
-    const open = [];
+    const open = [], live = [];
     staffed.forEach(b => {
       const d = B[b.type];
       if (d.perBlock) { b._live = b.tiles.filter(j => T[j].res > 0).length; b._dead = b._live === 0; } else b._dead = false;
@@ -471,9 +474,23 @@
       if (b._dead) return;
       const n = d.perBlock ? b.tiles.length : 1, mn = d.min * n, mx = d.max * n;
       b._mn = mn; b._mx = clamp(b.workers, mn, mx); want += b._mx;
-      if (left < mn) { unstaffed++; return; }
-      left -= mn; b._w = mn; open.push(b);
+      live.push(b);
     });
+    // pass 0: buildings the player gave workers to are staffed first
+    live.forEach(b => {
+      if (!(b.pin > 0)) return;
+      const w = clamp(b.pin, b._mn, b._mx);
+      if (left < w) return;
+      left -= w; b._w = w; b._pinned = true; open.push(b);
+    });
+    // pass 1: every other building gets its minimum, in priority order
+    live.forEach(b => {
+      if (b._w) return;
+      b._pinned = false;
+      if (left < b._mn) { unstaffed++; return; }
+      left -= b._mn; b._w = b._mn; open.push(b);
+    });
+    open.sort((a, b) => prio(a) - prio(b) || (+a.id.slice(1)) - (+b.id.slice(1)));
     // pass 2: spare workers go to open buildings in priority order, up to each one's limit
     for (const b of open) { const add = Math.min(left, b._mx - b._w); b._w += add; left -= add; }
     open.forEach(b => { jobs += b._w; const mx = B[b.type].max * (B[b.type].perBlock ? b.tiles.length : 1); b._eff = (0.6 + 0.4 * (b._w - b._mn) / Math.max(1, mx - b._mn)) * debtMul; });

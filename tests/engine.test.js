@@ -155,3 +155,21 @@ test('money is shown in lakh and crore', () => {
   assert.strictEqual(E.fmtMoney(250), '₹2.5 L');
   assert.strictEqual(E.fmtMoney(12000), '₹1.2 Cr');
 });
+
+test('solar, wind and batteries need only one or two people', () => {
+  for (const k of ['solar', 'wind', 'battery']) { assert.strictEqual(E.B[k].min, 1); assert.strictEqual(E.B[k].max, 2); }
+});
+
+test('workers freed by a demolition wait (hold) and go where the player pins them', () => {
+  const s = E.newGame(4242); put(s, 'foodFarm', 6); put(s, 'coalPlant', 1, 2); put(s, 'cashFarm', 3);
+  let f = E.flows(s);
+  const farm = Object.values(s.buildings).find(b => b.type === 'cashFarm');
+  const freed = farm._w; assert.ok(freed > 0);
+  E.demolish(s, farm.id); s.hold = freed;
+  const before = E.flows(s).unemployed;
+  assert.ok(before >= freed, 'held workers stay without work');
+  const target = Object.values(s.buildings).find(b => b.type === 'cashFarm');
+  target.pin = E.B.cashFarm.max; target.workers = target.pin; s.hold = 0;
+  f = E.flows(s);
+  assert.strictEqual(target._w, E.B.cashFarm.max, 'pinned building is staffed first');
+});

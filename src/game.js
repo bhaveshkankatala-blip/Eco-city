@@ -20,7 +20,7 @@ function eventDef(id) {
    Settings + results store (Claude db when hosted there, local otherwise)
    ========================================================= */
 // sheetUrl: the Google Apps Script web app (tools/google-sheet). Baked in at build time when known.
-const DEFAULTS = { t1: 15, t2: 8, t3: 8, jump: 8, pauseSec: 90, finalPauseSec: 60, pin: '2026', sheetUrl: '', sheetKey: 'ecocity-2026' };
+const DEFAULTS = { t1: 15, t2: 8, t3: 8, jump: 8, pauseSec: 90, finalPauseSec: 60, pin: '2026', sheetUrl: '', sheetKey: 'ecocity-2026', dayMin: 6 };
 Object.assign(DEFAULTS, window.ECO_CONFIG || {});
 let settings = Object.assign({}, DEFAULTS);
 let db = null, dbReady = false;
@@ -113,7 +113,7 @@ function newGame(team, roll, phone, repeat) {
   const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
   S = E.newGame(seed, team);
   S.roll = roll; S.phone = phone;
-  S.cfg = { t1: settings.t1, t2: settings.t2, t3: settings.t3, jump: settings.jump, pauseSec: settings.pauseSec, finalPauseSec: settings.finalPauseSec };
+  S.cfg = { dayMin: settings.dayMin || 6, t1: settings.t1, t2: settings.t2, t3: settings.t3, jump: settings.jump, pauseSec: settings.pauseSec, finalPauseSec: settings.finalPauseSec };
   S.deadline = Date.now() + levelMinutes(1) * 60000;
   S.startedAt = new Date().toISOString();
   S.gameId = 'g' + seed.toString(36) + Date.now().toString(36);
@@ -125,7 +125,7 @@ function newGame(team, roll, phone, repeat) {
   setView('plan');
   persist();
   refresh(true);
-  if (has3D) { R3.envNow(); layoutInsets(); R3.setLevel(1, false); }
+  if (has3D) { R3.envNow(); layoutInsets(); R3.setLevel(1, false); R3.setDayLength(S.cfg.dayMin || settings.dayMin); R3.newDay(7); }
   startGuide();
 }
 
@@ -224,14 +224,20 @@ function renderStats() {
   const homeless = Math.max(0, S.pop - f.cap);
   h.push(statRow('home', 'Homes', fmt(f.cap), homeless ? fmt(homeless) + ' people in slums' : 'Places to live', homeless > 0));
   h.push(statRow('food', 'Food', fmt(f.food) + ' / yr', 'Grown a year · eaten ' + fmt(f.foodDemand) + (f.foodCap ? ' · stored ' + fmt(S.foodStore) : ''), foodNow < f.foodDemand));
-  h.push(statRow('water', 'Water', fmt(f.water) + ' / yr', 'Used ' + fmt(f.waterDemand) + ' · reservoir ' + fmt(S.water) + ' of ' + fmt(f.waterCap), waterNow < f.waterDemand));
+  const rv = has3D ? R3.river() : { waste: 0, left: 0 };
+  h.push(statRow('water', 'Water', fmt(f.water) + ' / yr', 'Used ' + fmt(f.waterDemand) + ' a year' + (rv.waste > 0.5 ? (rv.left > 0.02 ? ' · river dirty: ' + Math.round(rv.left * 100) + '% of factory waste untreated' : ' · river clean: all factory waste treated') : ''), waterNow < f.waterDemand));
+  const rp = f.waterCap ? clamp(S.water / f.waterCap, 0, 1) : 0, rLow = rp < 0.2;
+  h.push('<div class="stat res' + (rLow ? ' bad' : '') + '" title="Water stored in the reservoir"><div class="ic">' + ICON.water + '</div><div class="k">Reservoir</div><div class="v num">' + Math.round(rp * 100) + '%</div>' +
+    '<div class="tankbar' + (rLow ? ' low' : '') + '" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(rp * 100) + '"><i style="width:' + (rp * 100).toFixed(1) + '%"></i><span>' + fmt(S.water) + ' of ' + fmt(f.waterCap) + '</span></div></div>');
   h.push(statRow('energy', 'Energy', fmt(f.gen) + ' / yr', 'Used ' + fmt(f.eDemand) + ' · ' + Math.round(f.cleanShare * 100) + '% clean', f.gen < f.eDemand));
   h.push(statRow('jobs', 'Jobs', fmt(f.jobs), 'Workers ' + fmt(f.workforce) + ' · ' + fmt(f.unemployed) + ' without work' + (f.unstaffed ? ' · ' + f.unstaffed + ' building' + (f.unstaffed > 1 ? 's' : '') + ' closed' : ''), f.unstaffed > 0 || (f.workforce && f.unemployed / f.workforce > 0.15)));
+  if (S.hold > 0 && S.phase === 'plan') h.push('<button class="holdchip" id="holdBtn">' + fmt(S.hold) + ' free workers waiting · Assign them</button>');
   if (S.level === 1) h.push(statRow('money', 'Earnings', (f.net >= 0 ? '+' : '') + money(f.net) + ' / yr', 'Building is free now; earnings are saved for Level 2', f.net < 0));
   else h.push(statRow('money', 'Money', money(S.money), (f.net >= 0 ? '+' : '') + money(f.net) + ' a year after upkeep', S.money < 0));
   h.push(statRow('pol', 'Pollution', Math.round(S.pollution) + '%', 'Air quality', S.pollution > 75));
   h.push(statRow('rain', 'Rain', Math.round(f.rain * 100) + '%', f.drought ? 'Drought: well below normal' : 'Of a normal monsoon', f.drought));
   $('statList').innerHTML = h.join('');
+  const hb = $('holdBtn'); if (hb) hb.onclick = () => openRealloc(0, null);
   // top bar: births and deaths
   $('pulseB').textContent = r.per1000.births.toFixed(0);
   $('pulseD').textContent = r.per1000.deaths.toFixed(0);
@@ -244,6 +250,7 @@ function pickNews() {
   if (!S) return '';
   if (S._lastNews && S._lastNews.until > Date.now()) return S._lastNews.text;
   const sit = E.situations(S, ui.flows);
+  if (has3D) { const rv = R3.river(); if (rv.waste * rv.left > 6) sit.unshift('dirty_river'); }
   const pool = [];
   sit.forEach(k => (C.news[k] || []).forEach(t => pool.push(t)));
   if (!pool.length) (C.news.idle || ['Quiet day on the island']).forEach(t => pool.push(t));
@@ -309,7 +316,7 @@ function renderInspector() {
     blocks = '<div class="blocks">' + bd.tiles.map(j => { const t = S.tiles[j]; const pct = t.resMax ? t.res / t.resMax : 0; return '<div class="blk' + (t.res <= 0 ? ' empty' : '') + '"><i style="height:' + Math.round(pct * 100) + '%"></i><span>' + (t.res > 0 ? fmt(t.res) : 'empty') + '</span></div>'; }).join('') + '<small>' + E.UNIT[d.on] + ' left per block</small></div>';
   }
   let staff = '';
-  if (d.min && !bd.initial) staff = '<label for="wk" class="wkl">Most workers allowed: <b class="num" id="wkv">' + fmt(bd.workers) + '</b></label><input id="wk" type="range" min="' + d.min * n + '" max="' + d.max * n + '" step="' + E.K + '" value="' + bd.workers + '">';
+  if (d.min && !bd.initial) staff = '<label for="wk" class="wkl">Most workers allowed: <b class="num" id="wkv">' + fmt(bd.workers) + '</b></label><input id="wk" type="range" min="' + d.min * n + '" max="' + d.max * n + '" step="' + (d.max * n <= 20 ? 1 : E.K) + '" value="' + bd.workers + '">';
   // upgrade cards (Clash of Clans style)
   const ups = E.upgradeOptions(S, bd.id);
   const upHtml = ups.map(u => {
@@ -331,7 +338,7 @@ function renderInspector() {
   const wk = $('wk');
   if (wk) wk.oninput = () => { bd.workers = +wk.value; $('wkv').textContent = fmt(+wk.value); refresh(false, true); persist(); };
   $('closeIns').onclick = () => { ui.sel = null; if (has3D) R3.select(null); refresh(); };
-  $('demo').onclick = () => { const bt = bd.tiles.slice(); E.demolish(S, bd.id); ui.sel = null; if (has3D) { R3.select(null); R3.puff(bt); } toast(d.name + ' demolished. Water and money spent are not returned.'); refresh(); persist(); };
+  $('demo').onclick = () => { const bt = bd.tiles.slice(); const freed = bd._w || 0; E.demolish(S, bd.id); ui.sel = null; if (has3D) { R3.select(null); R3.puff(bt); } toast(d.name + ' demolished. Water and money spent are not returned.'); afterDemolish(freed, d.name); };
   el.querySelectorAll('[data-up]').forEach(b => b.onclick = () => {
     const kind = b.dataset.up, res = E.upgrade(S, bd.id, kind);
     if (!res.ok) { toast(res.why); return; }
@@ -341,6 +348,57 @@ function renderInspector() {
     setTimeout(() => { refresh(); persist(); }, 380);
   });
 }
+
+/* Workers freed by a demolition wait for the player to place them */
+function afterDemolish(freed, name) {
+  if (freed > 0 && S.phase === 'plan') { S.hold = (S.hold || 0) + freed; refresh(); persist(); openRealloc(freed, name); }
+  else { refresh(); persist(); }
+}
+let ra = null;
+function openRealloc(freed, name) {
+  E.flows(S); // current staffing (held workers excluded)
+  const cands = Object.values(S.buildings).filter(b => B[b.type].min && !b._dead).map(b => {
+    const d = B[b.type], n = d.perBlock ? b.tiles.length : 1;
+    return { b, mn: d.min * n, mx: d.max * n, w: b._w || 0, add: 0, step: d.max * n <= 20 ? 1 : E.K };
+  }).filter(c => c.w < c.mx).sort((a, b) => (a.w > 0) - (b.w > 0) || (a.w / a.mx) - (b.w / b.mx));
+  ra = { pool: S.hold || 0, cands };
+  $('raTitle').textContent = freed ? fmt(freed) + ' workers lost their jobs' : 'Free workers';
+  $('raLead').textContent = (name ? 'They worked at the ' + name + ' you demolished. ' : '') + 'Choose which buildings they join. Buildings marked Closed need their minimum before they open. Anyone you do not place stays without work until you assign them.';
+  renderRealloc();
+  $('reallocScreen').hidden = false;
+}
+function renderRealloc() {
+  $('raPool').textContent = fmt(ra.pool);
+  $('raList').innerHTML = ra.cands.length ? ra.cands.map((c, k) => {
+    const now = c.w + c.add, closed = now < c.mn;
+    const canAdd = ra.pool > 0 && now < c.mx && (now >= c.mn || ra.pool >= c.mn - now);
+    return '<div class="rarow' + (c.w === 0 ? ' closed' : '') + '" data-k="' + k + '"><div><b>' + B[c.b.type].name + '</b><small>' + (c.w === 0 ? 'Closed · needs ' + fmt(c.mn) + ' to open' : fmt(c.w) + ' working · room for ' + fmt(c.mx - c.w) + ' more') + (closed && c.add ? ' · still closed' : '') + '</small></div>' +
+      '<button data-a="-" aria-label="Fewer"' + (c.add ? '' : ' disabled') + '>−</button><span class="add num">' + (c.add ? '+' + fmt(c.add) : '0') + '</span><button data-a="+" aria-label="More"' + (canAdd ? '' : ' disabled') + '>+</button></div>';
+  }).join('') : '<p class="lead">Every building already has as many workers as it can take. These people will stay without work until you build something that needs them.</p>';
+}
+$('raList').addEventListener('click', e => {
+  const btn = e.target.closest('[data-a]'), row = e.target.closest('[data-k]'); if (!row) return;
+  const c = ra.cands[+row.dataset.k];
+  if (has3D) R3.select(c.b.id);
+  if (!btn) return;
+  const now = c.w + c.add;
+  if (btn.dataset.a === '+') { const want = now < c.mn ? c.mn - now : Math.min(c.step, c.mx - now); const g = Math.min(want, ra.pool); if (now + g < c.mn) return; c.add += g; ra.pool -= g; }
+  else { const back = (c.w + c.add - c.step < c.mn) ? c.add : Math.min(c.step, c.add); c.add -= back; ra.pool += back; }
+  renderRealloc();
+});
+function closeRealloc(auto) {
+  if (!ra) return;
+  if (auto) S.hold = 0;
+  else {
+    ra.cands.forEach(c => { if (c.add > 0) { c.b.pin = c.w + c.add; c.b.workers = Math.max(c.b.workers, c.b.pin); } });
+    S.hold = ra.pool;
+  }
+  ra = null; $('reallocScreen').hidden = true; if (has3D) R3.select(null);
+  refresh(); persist();
+  toast(auto ? 'The city has given the free workers jobs where they were needed most.' : 'Workers placed.' + (S.hold ? ' ' + fmt(S.hold) + ' are still waiting for work.' : ''));
+}
+$('raDone').onclick = () => closeRealloc(false);
+$('raAuto').onclick = () => closeRealloc(true);
 
 /* Build bar */
 const TABS = [
@@ -412,6 +470,7 @@ function renderTop() {
   $('lvlTitle').textContent = 'Level ' + S.level + ': ' + L.title;
   $('lvlSub').textContent = L.sub;
   $('clockY').textContent = 'City year ' + S.year;
+  renderDayTime();
   $('finishLabel').textContent = S.level < 3 ? 'Finish Level ' + S.level : 'Submit city';
   $('finishSub').textContent = S.level === 1 ? 'Then ' + S.cfg.jump + ' years pass' : S.level === 2 ? 'Then 50 years pass' : 'Run to year ' + E.CAP_YEARS;
 }
@@ -464,6 +523,7 @@ cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('wheel', e => { e.preventDefault(); if (!has3D) return; const r = cv.getBoundingClientRect(); R3.zoom(e.deltaY < 0 ? 0.88 : 1 / 0.88, e.clientX - r.left, e.clientY - r.top); }, { passive: false });
 window.addEventListener('keydown', e => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+  if (e.key === 'Escape' && ra) { closeRealloc(true); return; }
   if (e.key === 'Escape') { ui.tool = null; ui.sel = null; ui.selTile = -1; if (has3D) { R3.grid(false); R3.select(null); } if (S) refresh(); }
   if (!has3D || viewMode !== 'plan') return;
   const k = e.key.toLowerCase();
@@ -492,7 +552,7 @@ function clickTile(i) {
     refresh(); return;
   }
   if (ui.tool === 'demolish') {
-    if (t.b) { const bt = S.buildings[t.b].tiles.slice(); const n = B[S.buildings[t.b].type].name; E.demolish(S, t.b); ui.sel = null; if (has3D) R3.puff(bt); toast(n + ' demolished.'); refresh(); persist(); }
+    if (t.b) { const bt = S.buildings[t.b].tiles.slice(); const n = B[S.buildings[t.b].type].name; const freed = S.buildings[t.b]._w || 0; E.demolish(S, t.b); ui.sel = null; if (has3D) R3.puff(bt); toast(n + ' demolished.'); afterDemolish(freed, n); }
     return;
   }
   const r = E.build(S, ui.tool, i, placeOpts());
@@ -594,6 +654,12 @@ function tickClock() {
   if (left <= 0) { closeAll(); toast('Time is up for Level ' + S.level + '.'); finishLevel(); }
 }
 setInterval(tickClock, 500);
+function renderDayTime() {
+  if (!has3D || !S) return;
+  const d = R3.dayInfo(), el = $('dayTime');
+  el.innerHTML = (d.night ? '<svg viewBox="0 0 24 24" width="14" fill="#c9d6ff"><path d="M20 15A8 8 0 0 1 9 4a8 8 0 1 0 11 11z"/></svg>' : '<svg viewBox="0 0 24 24" width="14" fill="#ffd23f"><circle cx="12" cy="12" r="5"/><g stroke="#ffd23f" stroke-width="2" stroke-linecap="round"><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></svg>') + '<span>' + d.label + ' · ' + d.text + '</span>';
+}
+setInterval(renderDayTime, 1000);
 
 function confirmBox(title, text, yes, onYes) {
   $('cfTitle').textContent = title; $('cfText').textContent = text; $('cfYes').textContent = yes;
@@ -611,6 +677,8 @@ $('finishBtn').onclick = () => {
 };
 function finishLevel() {
   if (S.phase !== 'plan') return;
+  if (ra) closeRealloc(true);
+  S.hold = 0;
   sheetSend({ action: 'update', id: S.gameId, status: 'Playing', level: S.level < 3 ? 'Time jump after L' + S.level : 'Final run', year: S.year });
   ui.tool = null; ui.sel = null; ui.selTile = -1; guide = null; showGuideStep(); $('fpick').hidden = true;
   if (S.level === 1) runSim({ years: S.cfg.jump, mode: 'grow', title: 'Level 1 → Level 2', lead: S.cfg.jump + ' years pass. Couples start their families.', next: () => goLevel(2) });
@@ -895,7 +963,7 @@ onSubmit($('pinForm'), e => {
 let lbUnsub = null, lbRows = [];
 function openOrg() {
   $('orgScreen').hidden = false; seg('lb');
-  $('sT1').value = settings.t1; $('sT2').value = settings.t2; $('sT3').value = settings.t3; $('sJump').value = settings.jump; $('sPause').value = settings.pauseSec; $('sPin').value = settings.pin; $('sSheet').value = settings.sheetUrl || ''; $('sLaptop').value = laptopName();
+  $('sT1').value = settings.t1; $('sT2').value = settings.t2; $('sT3').value = settings.t3; $('sJump').value = settings.jump; $('sPause').value = settings.pauseSec; $('sDay').value = settings.dayMin || 6; $('sPin').value = settings.pin; $('sSheet').value = settings.sheetUrl || ''; $('sLaptop').value = laptopName();
   $('gameInfo').textContent = S ? 'Current game: ' + S.team + ', Level ' + S.level + ', city year ' + S.year + '.' : 'No game in progress.';
   updateDbStatus();
   if (db && !lbUnsub) lbUnsub = db.collection('results').onSnapshot(snap => { lbRows = snap.docs.map(d => Object.assign({ _id: d.id }, d.data())); renderLb(); }, () => { lbUnsub = null; lbRows = LS.get('results', []); renderLb(); });
@@ -928,9 +996,10 @@ $('orgClose').onclick = () => { $('orgScreen').hidden = true; };
 onSubmit($('setForm'), async e => {
   e.preventDefault();
   const n = (id, lo, hi, d) => clamp(Math.round(+$(id).value || d), lo, hi);
-  settings = { t1: n('sT1', 1, 60, 15), t2: n('sT2', 1, 60, 8), t3: n('sT3', 1, 60, 8), jump: n('sJump', 5, 10, 8), pauseSec: n('sPause', 20, 180, 90), finalPauseSec: Math.round(n('sPause', 20, 180, 90) * 2 / 3), pin: ($('sPin').value.trim() || '2026').slice(0, 12), sheetUrl: $('sSheet').value.trim(), sheetKey: settings.sheetKey || DEFAULTS.sheetKey };
+  settings = { t1: n('sT1', 1, 60, 15), t2: n('sT2', 1, 60, 8), t3: n('sT3', 1, 60, 8), jump: n('sJump', 5, 10, 8), pauseSec: n('sPause', 20, 180, 90), finalPauseSec: Math.round(n('sPause', 20, 180, 90) * 2 / 3), pin: ($('sPin').value.trim() || '2026').slice(0, 12), sheetUrl: $('sSheet').value.trim(), sheetKey: settings.sheetKey || DEFAULTS.sheetKey, dayMin: n('sDay', 2, 20, 6) };
   if ($('sLaptop').value.trim()) LS.set('laptop', $('sLaptop').value.trim().slice(0, 30));
   LS.set('settings', settings); applySettingsText(); sheetFlush();
+  if (has3D) R3.setDayLength(settings.dayMin);
   if (settings.sheetUrl && !sheetOn()) { $('setMsg').textContent = 'That Google Sheet link does not look right: it should start with https://script.google.com/'; return; }
   let msg = 'Saved on this laptop.';
   if (db) { try { await db.doc('config/settings').set(settings); msg = 'Saved for every laptop. New games use these settings.'; } catch (err) { msg = 'Saved on this laptop only (could not reach the shared store).'; } }

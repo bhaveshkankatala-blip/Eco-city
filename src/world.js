@@ -19,7 +19,16 @@ const P = {
   concrete: '#c8cbcf', concreteDark: '#8e949b', metal: '#a9b0b6', asphalt: '#4d5258', soil: '#8a6a3f',
   pad: '#b9b4a6', gold: '#e8b52f', coal: '#2a2927', steelBlue: '#5b84ad', red: '#d8443a', white: '#f4f6f8',
 };
-function box(g, c, x, y, z, w, h, d, ry) { return g.add('box', c, x, y, z, w, h, d, ry); }
+// Building base plates sit on the grass. Pale plates (paving, sand) read as a second layer under every
+// building, so while a model is built they are blended toward the grass colour.
+let plateSoft = false; const PLATE_TO = C('#5f9e3c');
+function box(g, c, x, y, z, w, h, d, ry) {
+  if (plateSoft && y <= 0.001 && y >= -0.001 && h <= 0.035 && w >= 0.9 && d >= 0.9) {
+    const col = typeof c === 'string' ? C(c) : c, lum = 0.2126 * col[0] + 0.7152 * col[1] + 0.0722 * col[2];
+    if (lum > 0.16) c = mixc(col, PLATE_TO, 0.82);
+  }
+  return g.add('box', c, x, y, z, w, h, d, ry);
+}
 function cyl(g, c, x, y, z, r, h, n) { return g.add('cyl:' + (n || 10), c, x, y, z, r, h, r); }
 function cone(g, c, x, y, z, r, h, n) { return g.add('cone:' + (n || 8), c, x, y, z, r, h, r); }
 function sph(g, c, x, y, z, r, sy, n) { return g.add('sph:' + (n || 8), c, x, y, z, r, sy == null ? r : sy, r); }
@@ -230,7 +239,7 @@ const MODELS = {
     return { fall: { x: 0, z: 0, ry } };
   },
   wind(g) {
-    box(g, '#9fb98a', 0, 0, 0, 0.5, 0.02, 0.5);
+    box(g, '#6f9f4c', 0, 0, 0, 0.5, 0.02, 0.5);
     g.add('fr:10:0.55', '#f4f6f7', 0, 0.02, 0, 0.06, 1.55, 0.06);
     box(g, '#eef1f3', 0, 1.55, 0, 0.12, 0.09, 0.2, Math.PI / 4);
     return { spin: [{ x: 0, y: 1.6, z: 0, face: Math.PI / 4, off: 0.11 }] };
@@ -312,7 +321,9 @@ function damAxis(S, i) {
 function buildModel(type, fp, ctx) {
   const g = new Geo();
   const f = MODELS[type];
-  const extra = f ? (f(g, fp, ctx || {}) || {}) : {};
+  plateSoft = true;
+  let extra;
+  try { extra = f ? (f(g, fp, ctx || {}) || {}) : {}; } finally { plateSoft = false; }
   return { g, extra };
 }
 function rotorGeo() {
@@ -334,7 +345,7 @@ let bmap = new Map();     // building id -> entry
 let roadsMesh = null, depMesh = null, uMesh = null, propsMesh = null, hiMesh = null, gridMesh = null, dashMesh = null;
 let ghost = null, ghostKey = '';
 let quality = 1.75; const perf = { n: 0, sum: 0 };
-let sig = { roads: '', dep: '', props: '' };
+let sig = { roads: '', dep: '', props: '', river: '', lights: '' };
 let curLevel = 1;
 let particles = [], smog = [];
 let cars = [], carMesh = null, roadGraph = null;
@@ -598,7 +609,8 @@ function buildWorld(st) {
   [roadsMesh, depMesh, uMesh, propsMesh, hiMesh, gridMesh, dashMesh].forEach(freeMesh);
   roadsMesh = depMesh = uMesh = propsMesh = hiMesh = gridMesh = dashMesh = null;
   bmap.forEach(e => freeEntry(e)); bmap.clear();
-  sig = { roads: '', dep: '', props: '' };
+  sig = { roads: '', dep: '', props: '', river: '', lights: '' };
+  freeMesh(world.river); world.river = null; freeMesh(world.rocks); world.rocks = null; outfalls = []; nightLights = [];
   if (ghost) { freeMesh(ghost); ghost = null; ghostKey = ''; }
   labels.forEach(l => l.el.remove()); labels.clear();
   particles = []; smog = [];
@@ -631,13 +643,14 @@ function buildGridAndBorder(level) {
     g.p.push(v, 0.012, x0, v, 0.012, x1, x0, 0.012, v, x1, 0.012, v); for (let q = 0; q < 4; q++) g.c.push(wc[0], wc[1], wc[2]);
   }
   gridMesh = addMesh(g, { mode: 3, flat: 1, cast: false, blend: true, alpha: 0, depthWrite: false, prim: eng.gl.LINES, order: 3 });
-  const dg = new Geo(); box(dg, '#ffd25a', 0, 0, 0, 0.32, 0.03, 0.06);
-  const list = [], len = x1 - x0;
-  for (let s = 0; s < len; s += 0.5) {
-    const c = x0 + s + 0.25;
-    list.push([c, 0.012, x0, 1, 0], [c, 0.012, x1, 1, 0], [x0, 0.012, c, 1, Math.PI / 2], [x1, 0.012, c, 1, Math.PI / 2]);
-  }
-  dashMesh = addMesh(dg, { instances: list.length, mode: 3, flat: 1, cast: false }); eng.setInst(dashMesh, list);
+  // the edge of the land you can build on: a raised, see-through red wall
+  const dg = new Geo(), len = x1 - x0, T = 0.09, Hh = 0.32, red = '#ff3b30';
+  box(dg, red, (x0 + x1) / 2, 0, x0, len + T, Hh, T); box(dg, red, (x0 + x1) / 2, 0, x1, len + T, Hh, T);
+  box(dg, red, x0, 0, (x0 + x1) / 2, T, Hh, len + T); box(dg, red, x1, 0, (x0 + x1) / 2, T, Hh, len + T);
+  const rim = '#ffd0cc', RT = 0.035;
+  box(dg, rim, (x0 + x1) / 2, Hh, x0, len + T, RT, T); box(dg, rim, (x0 + x1) / 2, Hh, x1, len + T, RT, T);
+  box(dg, rim, x0, Hh, (x0 + x1) / 2, T, RT, len + T); box(dg, rim, x1, Hh, (x0 + x1) / 2, T, RT, len + T);
+  dashMesh = addMesh(dg, { mode: 3, flat: 1, cast: false, blend: true, alpha: 0.5, depthWrite: false, order: 6 });
 }
 
 /* ---------- buildings ---------- */
@@ -853,14 +866,42 @@ function computeEnv(time) {
   let skyTop = mixc(C('#3f8fd8'), C('#7d7462'), pe), skyHor = mixc(C('#cfe8f7'), C('#b9a27a'), pe), skyBot = mixc(C('#eef5fa'), C('#a8977a'), pe);
   skyHor = mixc(skyHor, C('#e8d6a6'), dr * 0.5); skyBot = mixc(skyBot, C('#e3d2a4'), dr * 0.4);
   skyTop = mixc(skyTop, C('#6f7c86'), dead * 0.8); skyHor = mixc(skyHor, C('#a9a49b'), dead * 0.8); skyBot = mixc(skyBot, C('#99948c'), dead * 0.8);
-  const sunCol = mixc(mixc(mixc([2.45, 2.25, 1.95], [1.35, 1.05, 0.72], pe), [2.6, 2.2, 1.6], dr * 0.4), [1.0, 0.98, 0.95], dead);
+  // time of day: sun height, warm low light at dawn and dusk, moonlight at night
+  const D = dayNow(time), el = Math.sin(Math.PI * (D.h - 6) / 12);
+  // night below the horizon, a long golden/pink hour around sunrise and sunset
+  const night = 1 - smooth(-0.32, 0.02, el), gold = smooth(-0.34, -0.06, el) * (1 - smooth(0.08, 0.42, el)), dl = 1 - night;
+  const morning = D.h < 12 ? 1 : 0;
+  dayState.night = night;
+  const dayTop = skyTop, dayHor = skyHor, dayBot = skyBot;
+  const gTop = morning ? C('#7a86c8') : C('#5a5aa0'), gHor = morning ? C('#ffb68a') : C('#ff8f4a'), gBot = morning ? C('#ffd2a8') : C('#f6a560');
+  skyTop = mixc(mixc(dayTop, gTop, gold * 0.8), C('#03050c'), night);
+  skyHor = mixc(mixc(dayHor, gHor, gold), C('#0e1630'), night);
+  skyBot = mixc(mixc(dayBot, gBot, gold), C('#0a0f20'), night);
+  let sunCol = mixc(mixc(mixc([1.55, 1.46, 1.32], [1.0, 0.82, 0.6], pe), [1.7, 1.45, 1.05], dr * 0.4), [0.85, 0.83, 0.8], dead);
+  sunCol = mixc(mixc(sunCol, morning ? [1.75, 0.8, 0.5] : [1.85, 0.62, 0.28], gold), [0.035, 0.05, 0.11], night);
   let grass = mixc([1, 1, 1], [0.8, 0.7, 0.5], pe);
   grass = mixc(grass, [1.25, 0.98, 0.45], dr * 0.9);
   grass = mixc(grass, [0.55, 0.53, 0.5], dead);
   const water = mixc(mixc(C('#38a0e0'), C('#6b6a45'), pe), C('#5f676b'), dead), waterDeep = mixc(mixc(C('#1b5d9b'), C('#3f3f28'), pe), C('#363c40'), dead);
   const e = scene.env;
-  e.time = time / 1000; e.sun = (() => { const v = [-0.52, 0.74, 0.42]; const l = Math.hypot(...v); return v.map(a => a / l); })();
-  e.sunCol = sunCol; e.sky = mixc(mixc(C('#c8e2ff'), C('#b8a585'), pe), [0.5, 0.5, 0.5], dead).map(v => v * (0.72 - pe * 0.12)); e.gnd = C('#6b5a45').map(v => v * 0.5);
+  e.time = time / 1000;
+  const az = Math.PI * (D.h - 6) / 12, sunV = [-Math.cos(az) * 0.85, Math.max(el, 0) * 0.95 + 0.16, 0.45], moonV = [0.35, 0.85, 0.4];
+  e.sun = (() => { const v = mixc(moonV, sunV, smooth(0.25, 0.75, dl)); const l = Math.hypot(...v); return v.map(a => a / l); })();
+  e.sunCol = sunCol;
+  e.sky = mixc(mixc(mixc(mixc(C('#c8e2ff'), C('#b8a585'), pe), [0.5, 0.5, 0.5], dead).map(v => v * (0.6 - pe * 0.1)), morning ? [0.36, 0.24, 0.32] : [0.4, 0.22, 0.16], gold * 0.85), [0.008, 0.011, 0.026], night);
+  e.gnd = mixc(C('#6b5a45').map(v => v * 0.45), [0.01, 0.01, 0.02], night);
+  e.night = night;
+  // the 40 lights nearest the middle of the view light up the ground and buildings
+  if (night > 0.02 && nightLights.length) {
+    if (!e.lights) e.lights = new Float32Array(160);
+    if (time - (lightPick.t || 0) > 500 || lightPick.n !== nightLights.length) {
+      lightPick.t = time; lightPick.n = nightLights.length;
+      lightPick.list = nightLights.map(L => [L, (L[0] - cam.tx) ** 2 + (L[2] - cam.tz) ** 2 - (L[8] ? 0 : 0.5)]).sort((a, b) => a[1] - b[1]).slice(0, 40).map(a => a[0]);
+    }
+    let k = 0;
+    for (const L of lightPick.list) { if (L[8]) { const b = S.buildings[L[8]]; if (!b || (B[b.type].min && !(b._eff > 0))) continue; } e.lights.set([L[0], L[1] + 0.12, L[2], L[8] ? 0.8 : 1.1], k * 4); k++; }
+    e.lightN = k;
+  } else e.lightN = 0;
   e.skyTop = skyTop; e.skyHor = skyHor; e.skyBot = skyBot; e.fog = skyHor; e.horY = 0.45;
   e.fogN = cam.dist * (1.55 - pe * 0.95 - dead * 0.35); e.fogF = cam.dist * (3.6 - pe * 1.6 - dead * 0.6);
   e.water = water; e.waterDeep = waterDeep;
@@ -868,8 +909,136 @@ function computeEnv(time) {
   if (world.terrain) { world.terrain.tint = grass; }
   [world.pines, world.rounds, propsMesh].forEach(m => { if (m) m.tint = mixc(grass, [1, 1, 1], 0.15); });
   if (world.water) world.water.model = M4.trs(0, -0.43 + 0.33 * clamp(envS.wf, 0, 1) - 0.06 * dr, 0, 0, 1);
+  if (world.river) world.river.model = world.water ? world.water.model : M4.id();
   if (uMesh) uMesh.emit = 0.45 + 0.35 * Math.sin(time / 380);
   return pe;
+}
+
+/* ---------- time of day ---------- */
+// One in-game day lasts dayLenMs of real time (organisers can change it). A new game starts at 7 am.
+let dayLenMs = 6 * 60000, dayStart = 0, dayFrozen = -1;
+const dayState = { night: 0 }, lightPick = {}, riverState = { waste: 0, left: 0 };
+function dayNow(time) {
+  if (dayFrozen >= 0) return { h: dayFrozen };
+  if (!dayStart) dayStart = time - (1 / 24) * dayLenMs; // 7:00
+  const t = ((time - dayStart) / dayLenMs) % 1;
+  return { h: (6 + 24 * t) % 24 };
+}
+function dayLabel(h) { return h >= 5 && h < 8 ? 'Early morning' : h < 12 && h >= 8 ? 'Morning' : h >= 12 && h < 16 ? 'Afternoon' : h >= 16 && h < 19 ? 'Evening' : 'Night'; }
+
+/* ---------- the river: flow, dams and factory waste ---------- */
+let outfalls = [], nightLights = [];
+const RIVER_DIRTY = { coalPlant: 7.5, goldFactory: 8, mineralMine: 6, itPark: 4, cashFarm: 1, nuclear: 0.8 };
+function syncRiver() {
+  const bl = Object.values(S.buildings);
+  const key = bl.filter(b => b.type === 'dam' || b.type === 'waterPlant' || RIVER_DIRTY[b.type] || S.tiles[b.tiles[0]].t === 'river').map(b => b.id + ':' + b.tiles.length + ':' + (b._eff > 0 ? 1 : 0)).join('|');
+  if (key === sig.river && world.river) return;
+  sig.river = key; freeMesh(world.river); world.river = null;
+  // river cells on the island (the channel runs a little past the map at both ends)
+  const riv = riverInfo(S), cells = riv.cells.filter(([x, y]) => (x >= 0 && y >= 0 && x < W && y < W) || Math.hypot(tw(x), tw(y)) < RO(Math.atan2(tw(y), tw(x))) - 0.7), idx = new Map();
+  cells.forEach((c, k) => idx.set(c[0] + ',' + c[1], k));
+  // distance downstream from the source (the river enters at the top of the map)
+  const dist = new Array(cells.length).fill(-1), order = [];
+  const minY = Math.min(...cells.map(c => c[1]));
+  cells.forEach((c, k) => { if (c[1] === minY) { dist[k] = 0; order.push(k); } });
+  for (let q = 0; q < order.length; q++) {
+    const k = order[q], [x, y] = cells[k];
+    for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) { const j = idx.get((x + dx) + ',' + (y + dy)); if (j != null && dist[j] < 0) { dist[j] = dist[k] + 1; order.push(j); } }
+  }
+  cells.forEach((c, k) => { if (dist[k] < 0) { dist[k] = 999; order.push(k); } });
+  const flow = cells.map((c, k) => {
+    let fx = 0, fz = 0;
+    for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) { const j = idx.get((c[0] + dx) + ',' + (c[1] + dy)); if (j != null && dist[j] > dist[k]) { fx += dx; fz += dy; } }
+    if (!fx && !fz) return [0, 1];
+    const l = Math.hypot(fx, fz); return [fx / l, fz / l];
+  });
+  const speed = cells.map(() => 0.55);
+  const inMap = (x, y) => x >= 0 && y >= 0 && x < W && y < W;
+  const nearestCell = (b) => { let best = -1, bd = 1e9; for (const i of b.tiles) { const t = S.tiles[i]; cells.forEach((c, k) => { if (!inMap(c[0], c[1])) return; const d = Math.hypot(c[0] - t.x, c[1] - t.y); if (d < bd) { bd = d; best = k; } }); } return best; };
+  // dams: calm, deep water above; fast, foaming water below
+  bl.filter(b => b.type === 'dam').forEach(b => {
+    const k = idx.get(S.tiles[b.tiles[0]].x + ',' + S.tiles[b.tiles[0]].y); if (k == null) return;
+    const run = b._eff > 0;
+    cells.forEach((c, j) => { const dd = dist[j] - dist[k]; if (dd < 0 && dd >= -3) speed[j] = Math.min(speed[j], 0.16); if (dd >= 0 && dd <= 2) speed[j] = run ? 1 : 0.5; });
+  });
+  // waste: running factories drain into the nearest stretch of river. Treatment plants take in
+  // the city's waste water first; whatever they cannot handle reaches the river.
+  const src = cells.map(() => 0), clean = cells.map(() => 1);
+  outfalls = [];
+  const dirtyB = bl.filter(b => RIVER_DIRTY[b.type] && b._eff > 0);
+  const waste = dirtyB.reduce((a, b) => a + RIVER_DIRTY[b.type] * (B[b.type].perBlock ? b.tiles.length : 1) * b._eff, 0);
+  const plants = bl.filter(b => b.type === 'waterPlant' && b._eff > 0);
+  const treat = plants.reduce((a, b) => a + 16 * b._eff, 0);
+  const left = waste > 0 ? Math.max(0, 1 - treat / waste) : 0;
+  riverState.waste = waste; riverState.left = left;
+  plants.forEach(b => { const k = nearestCell(b); if (k < 0) return; const c = cells[k]; outfalls.push({ x: tw(c[0]), z: tw(c[1]), fx: flow[k][0], fz: flow[k][1], kind: 'clean' }); });
+  dirtyB.forEach(b => {
+    const k = nearestCell(b); if (k < 0) return;
+    const c = cells[k], w = RIVER_DIRTY[b.type] * (B[b.type].perBlock ? b.tiles.length : 1) * b._eff * left;
+    if (w <= 0.05) return;
+    src[k] += w;
+    outfalls.push({ x: tw(c[0]), z: tw(c[1]), fx: flow[k][0], fz: flow[k][1], kind: 'waste', rate: Math.min(3, w / 6) });
+  });
+  const load = cells.map(() => 0);
+  order.forEach(k => {
+    const [x, y] = cells[k]; let up = 0, nu = 0;
+    for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) { const j = idx.get((x + dx) + ',' + (y + dy)); if (j != null && dist[j] === dist[k] - 1) { up += load[j]; nu++; } }
+    load[k] = ((nu ? up / nu : 0) * 0.95 + src[k]) * clean[k];
+  });
+  const dirt = load.map(L => clamp(L / 14, 0, 1));
+  // one quad per river cell; corners average their neighbours so waves and colour flow smoothly
+  const corner = new Map();
+  const acc = (cx, cz, k) => { const key = cx + ',' + cz; let v = corner.get(key); if (!v) corner.set(key, v = [0, 0, 0, 0]); v[0] += flow[k][0] * speed[k]; v[1] += flow[k][1] * speed[k]; v[2] += dirt[k]; v[3]++; };
+  cells.forEach(([x, y], k) => { acc(x, y, k); acc(x + 1, y, k); acc(x, y + 1, k); acc(x + 1, y + 1, k); });
+  const g = new Geo(), yv = 0.025;
+  const vtx = (cx, cz) => { const v = corner.get(cx + ',' + cz); return { p: [tw(cx) - 0.5, yv, tw(cz) - 0.5], c: [clamp(v[0] / v[3] * 0.5 + 0.5, 0, 1), clamp(v[1] / v[3] * 0.5 + 0.5, 0, 1), v[2] / v[3]] }; };
+  cells.forEach(([x, y]) => {
+    const a = vtx(x, y), b2 = vtx(x + 1, y), c2 = vtx(x + 1, y + 1), d2 = vtx(x, y + 1);
+    for (const v of [a, b2, c2, a, c2, d2]) { g.p.push(v.p[0], v.p[1], v.p[2]); g.c.push(v.c[0], v.c[1], v.c[2]); }
+  });
+  world.river = addMesh(g, { mode: 8, flat: 0, cast: false, blend: true, alpha: 0.94, depthWrite: true, order: 1 });
+  if (world.water) world.river.model = world.water.model;
+  // mossy boulders along the banks (not where something is built)
+  freeMesh(world.rocks); world.rocks = null;
+  const rg = new Geo();
+  cells.forEach(([x, y]) => {
+    if (!inMap(x, y)) return;
+    if (S.tiles[E.idx(x, y)].b) return;
+    const cx = tw(x), cz = tw(y);
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy], q) => {
+      if (idx.has((x + dx) + ',' + (y + dy))) return;
+      for (let r = 0; r < 2; r++) {
+        if (hash(x * 3 + q, y * 5 + r, 71) > 0.5) continue;
+        const along = (hash(x, y, 80 + q * 4 + r) - 0.5) * 0.75, sz = 0.07 + 0.08 * hash(y, x, 90 + q + r);
+        const px = cx + dx * 0.4 + (dy ? along : 0), pz = cz + dy * 0.4 + (dx ? along : 0);
+        sph(rg, hash(x, y, q + r) > 0.5 ? '#8f8a80' : '#a39d92', px, -0.24, pz, sz * 1.15, sz * 0.75, 7);
+        sph(rg, '#4c8a37', px, -0.24 + sz * 0.42, pz, sz * 0.95, sz * 0.42, 7);
+      }
+    });
+    if (hash(x, y, 99) < 0.14) { const px = cx + (hash(x, y, 98) - 0.5) * 0.5, pz = cz + (hash(y, x, 97) - 0.5) * 0.5; sph(rg, '#9a958b', px, -0.26, pz, 0.09, 0.07, 7); }
+  });
+  if (rg.p.length) world.rocks = addMesh(rg, { flat: 1, cast: false });
+}
+
+/* ---------- night lights: windows and street lamps ---------- */
+const LIT = { hut: 1, house: 2, community: 3, apartment: 6, school: 2, hospital: 4, itPark: 4, waterPlant: 1, granary: 1, recycling: 1, coalPlant: 2, goldFactory: 2, nuclear: 3, mineralMine: 1 };
+function syncLights() {
+  const key = [...bmap.keys()].join(',') + '|' + sig.roads.length;
+  if (key === sig.lights) return;
+  sig.lights = key; nightLights = [];
+  for (const e of bmap.values()) {
+    const n = LIT[e.type]; if (!n) continue;
+    for (let k = 0; k < n; k++) {
+      const r = hash(e.x * 7 | 0, e.z * 7 | 0, k), r2 = hash(e.z * 5 | 0, e.x * 3 | 0, k + 9);
+      const hgt = e.type === 'apartment' ? 0.35 + 1.3 * r : e.type === 'itPark' ? 0.3 + 0.8 * r : 0.18 + 0.12 * r;
+      nightLights.push([e.x + (r2 - 0.5) * 0.55, hgt, e.z + 0.22 + (r - 0.5) * 0.3, 0.07, 1.0, 0.82, 0.45, 0.85, e.id]);
+    }
+  }
+  Object.values(S.buildings).forEach(b => {
+    if (b.type !== 'road') return;
+    const t = S.tiles[b.tiles[0]]; if ((t.x + t.y) % 2) return;
+    nightLights.push([tw(t.x) + 0.42, 0.3, tw(t.y) + 0.42, 0.09, 1.0, 0.9, 0.62, 0.9, null]);
+  });
 }
 
 /* ---------- camera ---------- */
@@ -924,6 +1093,12 @@ const R3 = {
     cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
   },
   setInsets(o) { insets = o; },
+  river() { return { waste: riverState.waste, left: riverState.left }; },
+  // time of day
+  dayInfo() { const D = dayNow(performance.now()); const h = Math.floor(D.h), m = Math.floor((D.h - h) * 60); return { h: D.h, text: String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'), label: dayLabel(D.h), night: D.h < 5 || D.h >= 19 }; },
+  setDayLength(min) { const now = performance.now(), D = dayNow(now); dayLenMs = Math.max(1, +min || 6) * 60000; dayStart = now - ((D.h - 6 + 24) % 24) / 24 * dayLenMs; },
+  newDay(hour) { const now = performance.now(); dayStart = now - (((hour == null ? 7 : hour) - 6 + 24) % 24) / 24 * dayLenMs; },
+  freezeDay(hour) { dayFrozen = hour == null ? -1 : hour; },
   load(st) { S = st; buildWorld(st); curLevel = st.level; recolorTerrain(st.level); buildGridAndBorder(st.level); R3.sync(st, null, false); },
   setLevel(level, instant) {
     curLevel = level; recolorTerrain(level); buildGridAndBorder(level);
@@ -933,7 +1108,7 @@ const R3 = {
   },
   sync(st, f, animate) {
     S = st; if (!S || !eng) return;
-    syncBuildings(animate); syncRoads(); syncDeposits(); syncProps(); syncStatus();
+    syncBuildings(animate); syncRoads(); syncDeposits(); syncProps(); syncStatus(); syncRiver(); syncLights();
     envT.p = S.pollution; envT.d = E.isDrought(S) ? 1 : 0; envT.dead = S.dead ? 1 : 0;
     if (f && f.waterCap) envT.wf = S.water / f.waterCap;
     updateHover();
@@ -1023,6 +1198,15 @@ const R3 = {
         }
       }
     }
+    // factory waste pouring into the river, clean water leaving treatment plants
+    const wy = (world.water ? world.water.model[13] : -0.2) + 0.05;
+    for (const o of outfalls) {
+      if (particles.length > 480) break;
+      if (o.kind === 'waste' && Math.random() < dt * 2.5 * o.rate) particles.push({ x: o.x + (Math.random() - 0.5) * 0.4, y: wy, z: o.z + (Math.random() - 0.5) * 0.4, vx: o.fx * 0.35, vy: 0.01, vz: o.fz * 0.35, age: 0, life: 3.2, s0: 0.1, s1: 0.4, col: [0.33, 0.26, 0.11], a: 0.6 });
+      if (o.kind === 'clean' && Math.random() < dt * 3) particles.push({ x: o.x + (Math.random() - 0.5) * 0.3, y: wy + 0.04, z: o.z + (Math.random() - 0.5) * 0.3, vx: o.fx * 0.3, vy: 0.06, vz: o.fz * 0.3, age: 0, life: 1.4, s0: 0.05, s1: 0.16, col: [0.85, 0.97, 1.0], a: 0.7 });
+    }
+    // a running dam throws spray below it
+    for (const e of bmap.values()) if (e.type === 'dam' && e.on && Math.random() < dt * 5) emit(e.x + (Math.random() - 0.5) * 0.5, wy, e.z + (Math.random() - 0.5) * 0.5, 'mist', 0.5);
     // mist at waterfalls
     if (world.mist) for (const [x, y, z, s] of world.mist) if (Math.random() < dt * 4) emit(x, y, z, 'mist', s);
     // particles
@@ -1039,6 +1223,16 @@ const R3 = {
       const a = clamp(pe, 0, 1) * 0.34;
       const sc = mixc([0.42, 0.36, 0.26], [0.36, 0.35, 0.33], clamp(envS.dead, 0, 1));
       for (const s of smog) sprites.push([s.x + Math.sin(time / 9000 + s.ph) * 0.8, s.y, s.z + Math.cos(time / 11000 + s.ph) * 0.8, s.s, sc[0], sc[1], sc[2], a]);
+    }
+    // lights come on at dusk
+    if (dayState.night > 0.04) {
+      const nf = dayState.night;
+      for (const L of nightLights) {
+        if (sprites.length > 590) break;
+        if (L[8]) { const b = S.buildings[L[8]]; if (b && B[b.type].min && !(b._eff > 0)) continue; }
+        const fl = 0.9 + 0.1 * Math.sin(time / 300 + L[0] * 13);
+        sprites.push([L[0], L[1], L[2], L[3] * (1.6 + nf), L[4], L[5], L[6], L[7] * nf * fl]);
+      }
     }
     scene.sprites = sprites;
     // cars
@@ -1069,7 +1263,7 @@ const R3 = {
       if (!pp) { l.el.style.display = 'none'; continue; }
       l.el.style.display = ''; l.el.style.transform = 'translate(' + Math.round(pp.x) + 'px,' + Math.round(pp.y) + 'px) translate(-50%,-100%)';
     }
-    eng.render(scene, cm);
+    eng.render(scene, cm, { shadow: false });
   },
   // render a building on its own for the build cards
   thumb(type) {
@@ -1095,7 +1289,7 @@ const R3 = {
     const eye = [cx + dist * Math.cos(pitch) * Math.sin(yaw), dist * Math.sin(pitch) + tall * 0.35, cz + dist * Math.cos(pitch) * Math.cos(yaw)];
     const view = M4.lookAt(eye, [cx, tall * 0.35, cz], [0, 1, 0]);
     const vp = M4.mul(M4.persp(30 * Math.PI / 180, Wt / Ht, 0.1, 100), view);
-    const sc = { meshes, sprites: [], env: Object.assign({}, scene.env, { fogN: 500, fogF: 600, water: C('#38a0e0'), waterDeep: C('#1b5d9b') }) };
+    const sc = { meshes, sprites: [], env: Object.assign({}, scene.env, { fogN: 500, fogF: 600, water: C('#38a0e0'), waterDeep: C('#1b5d9b'), sun: [-0.5, 0.75, 0.43].map(v => v / Math.hypot(-0.5, 0.75, 0.43)), sunCol: [1.55, 1.46, 1.32], sky: C('#c8e2ff').map(v => v * 0.6), gnd: C('#6b5a45').map(v => v * 0.45), night: 0, lightN: 0 }) };
     if (!sc.env.sun) { computeEnv(0); Object.assign(sc.env, scene.env, { fogN: 500, fogF: 600 }); }
     eng.render(sc, { vp, eye, right: [view[0], view[4], view[8]], up: [view[1], view[5], view[9]], w: Wt, h: Ht }, { fbo: t.fbo, clear: [0, 0, 0, 0], shadow: false });
     const px = eng.read(t);

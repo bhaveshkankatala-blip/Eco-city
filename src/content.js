@@ -20,6 +20,7 @@ window.ECO_CONTENT = {
     many_elderly: ['Grandparents outnumber grandchildren in the old wards', 'Pension queues grow longer', 'Clinics full of familiar faces', 'Fewer hands, more wisdom', 'Who will work the fields tomorrow?'],
     coal_running_out: ['Miners dig deeper for thinner seams', 'Coal trucks half empty this week', 'Engineers warn the seam is nearly done', 'Coal town wonders what comes next', 'The black hills are almost hollow'],
     green_city: ['Birds back on the banyan trees', 'Forests cool the summer afternoons', 'Rain arrives right on time', 'Tourists come to see the green island', 'Peacocks spotted near the school'],
+    dirty_river: ['Factory waste turns the river brown', 'Fishermen pull up empty nets', 'Children told not to swim downstream of the factories', 'Brown foam spotted below the coal yard', 'Villagers downstream complain of foul water'],
     idle: ['Quiet day on the island', 'Chai, cricket and gossip on Neem Street', 'Council meets, nothing decided', 'Monsoon forecast: normal, for now', 'The island waits to see what you build'],
   },
   tutorial: [

@@ -171,6 +171,7 @@ in vec3 vCol; in vec3 vNor; in vec3 vW; in vec4 vL; out vec4 o;
 uniform vec3 uSun, uSunCol, uSky, uGnd, uFog, uCam, uTint, uWater, uWaterDeep;
 uniform float uFogN, uFogF, uAlpha, uTime, uEmit, uShadowOn; uniform int uMode, uFlat;
 uniform sampler2DShadow uShadow;
+uniform vec4 uL[40]; uniform int uLN; uniform float uNight;
 float shadowF(vec3 n){
   if(uShadowOn<0.5) return 1.0;
   vec3 p=vL.xyz/vL.w*0.5+0.5;
@@ -180,13 +181,16 @@ float shadowF(vec3 n){
   float s=texture(uShadow, vec3(p.xy,z))*2.0+texture(uShadow, vec3(p.xy+vec2(t.x,t.y),z))+texture(uShadow, vec3(p.xy+vec2(-t.x,t.y),z))+texture(uShadow, vec3(p.xy+vec2(t.x,-t.y),z))+texture(uShadow, vec3(p.xy-t,z));
   return s/6.0;
 }
+float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+float vn2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h21(i),h21(i+vec2(1,0)),f.x), mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x), f.y); }
+float fbm2(vec2 p){ return vn2(p)*0.55+vn2(p*2.03+3.1)*0.3+vn2(p*4.01+7.7)*0.15; }
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0); }
 void main(){
   vec3 n = uFlat==1 ? normalize(cross(dFdx(vW), dFdy(vW))) : normalize(vNor);
   if(uFlat==1 && dot(n, uCam - vW) < 0.0) n = -n;
   vec3 base=vCol*uTint; float a=uAlpha;
-  if(uMode==3){ o=vec4(pow(aces(base*1.6),vec3(1.0/2.2)),a); return; }
-  if(uMode==6){ vec3 g=base; float f=smoothstep(uFogN,uFogF,length(vW-uCam)); o=vec4(pow(aces(mix(g,uFog,f*0.6)*1.25),vec3(1.0/2.2)),a); return; }
+  if(uMode==3){ o=vec4(pow(aces(base*1.35),vec3(1.0/2.2)),a); return; }
+  if(uMode==6){ vec3 lit=mix(uGnd,uSky,n.y*0.5+0.5)*0.95+uSunCol*max(dot(n,uSun),0.0); vec3 g=base*lit*0.78; float f=smoothstep(uFogN,uFogF,length(vW-uCam)); o=vec4(pow(aces(mix(g,uFog,f*0.6)*1.25),vec3(1.0/2.2)),a); return; }
   if(uMode==1){
     float w1=sin(vW.x*3.1+uTime*1.4)*0.5+sin(vW.z*2.7-uTime*1.1)*0.5;
     float w2=sin((vW.x+vW.z)*5.3+uTime*2.3);
@@ -198,14 +202,49 @@ void main(){
     base=mix(uWater*1.4, vec3(0.92,0.97,1.0), smoothstep(0.55,0.95,s));
     a=uAlpha*0.92;
   }
+  if(uMode==8){
+    // River (look: a fast turquoise mountain river with white water). vCol.rg = flow direction * speed,
+    // vCol.b = factory waste. Foam streaks are stretched along the flow and carried downstream; two copies
+    // half a cycle apart are blended so the pattern never smears (flow-map trick).
+    vec2 fl=vCol.rg*2.0-1.0; float sp=length(fl);
+    vec2 fd= sp>0.02 ? fl/sp : vec2(0.0,1.0);
+    float ax=fd.x*fd.x;                       // how much this stretch runs along x
+    float k1=fract(uTime*0.18), k2=fract(uTime*0.18+0.5), wb=abs(1.0-2.0*k1);
+    vec2 d=fl*3.0;
+    vec2 p1=vW.xz-d*k1, p2=vW.xz-d*k2;
+    float s1=mix(fbm2(p1*vec2(4.5,1.1)), fbm2(p1*vec2(1.1,4.5)+7.3), ax);
+    float s2=mix(fbm2(p2*vec2(4.5,1.1)+3.1), fbm2(p2*vec2(1.1,4.5)+11.7), ax);
+    float st=mix(s1,s2,wb);
+    float c1=fbm2(p1*2.2+1.7), c2=fbm2(p2*2.2+5.9), ch=mix(c1,c2,wb);
+    n=normalize(vec3((st-0.5)*0.35+(ch-0.5)*0.2, 1.0, (ch-0.5)*0.3-(st-0.5)*0.2));
+    float dirt=clamp(vCol.b,0.0,1.0);
+    vec3 deep=vec3(0.02,0.24,0.40), mid=vec3(0.06,0.50,0.66), shallow=vec3(0.36,0.80,0.84);
+    vec3 turq=mix(deep,mid,smoothstep(0.25,0.65,ch));
+    turq=mix(turq,shallow,smoothstep(0.62,0.9,ch)*0.6);
+    turq=mix(turq, uWater, 0.18);           // pollution and drought tint from the sky
+    vec3 mud=mix(vec3(0.20,0.11,0.03), vec3(0.38,0.24,0.08), ch);
+    base=mix(turq,mud,smoothstep(0.0,0.7,dirt));
+    float foamAmt=(0.35+0.65*sp)*(1.0-smoothstep(0.0,0.7,dirt)*0.8);
+    float foam=smoothstep(0.62-0.08*sp,0.8,st)*foamAmt;
+    float rapids=smoothstep(0.85,1.0,sp)*smoothstep(0.4,0.7,ch)*0.8;
+    base=mix(base, vec3(0.92,0.97,1.0), clamp(max(foam,rapids),0.0,1.0));
+    a=uAlpha;
+  }
   float sh=shadowF(n);
   float ndl=max(dot(n,uSun),0.0);
   vec3 hemi=mix(uGnd,uSky,n.y*0.5+0.5);
   vec3 col=base*(hemi*0.95+uSunCol*ndl*sh)+base*uEmit;
-  if(uMode==1){ vec3 v=normalize(uCam-vW); vec3 h=normalize(v+uSun); col+=uSunCol*pow(max(dot(n,h),0.0),70.0)*0.55*sh; a=uAlpha; }
+  // night: warm light pools from street lamps and windows
+  if(uNight>0.02 && uMode!=8 && uMode!=1){
+    vec3 pl=vec3(0.0);
+    for(int i=0;i<40;i++){ if(i>=uLN) break; vec3 d=uL[i].xyz-vW; float r=length(d); float att=uL[i].w*smoothstep(1.9,0.15,r)/(1.0+r*r*3.5); pl+=vec3(1.0,0.72,0.42)*att*(0.45+0.55*max(dot(n,d/max(r,0.001)),0.0)); }
+    col+=base*pl*uNight*3.6;
+  }
+  if((uMode==1||uMode==8) && uNight>0.02){ vec3 pl=vec3(0.0); for(int i=0;i<40;i++){ if(i>=uLN) break; vec3 d=uL[i].xyz-vW; float r=length(d); pl+=vec3(1.0,0.75,0.45)*uL[i].w*smoothstep(1.8,0.2,r)/(1.0+r*r*3.0); } col+=pl*uNight*0.35; }
+  if(uMode==1||uMode==8){ vec3 v=normalize(uCam-vW); vec3 h=normalize(v+uSun); col+=uSunCol*pow(max(dot(n,h),0.0),70.0)*0.55*sh; a=uAlpha; }
   float f=smoothstep(uFogN,uFogF,length(vW-uCam));
   col=mix(col,uFog,f);
-  o=vec4(pow(aces(col*1.05),vec3(1.0/2.2)),a);
+  o=vec4(pow(aces(col*0.92),vec3(1.0/2.2)),a);
 }`;
 const VS_SH = VS_COMMON + `
 void main(){ vec3 n; gl_Position=uLVP*worldPos(n); }`;
@@ -331,6 +370,7 @@ Engine.prototype.render = function (scene, cam, opt) {
   gl.uniform3fv(u.uFog, env.fog); gl.uniform3fv(u.uCam, cam.eye); gl.uniform1f(u.uFogN, env.fogN); gl.uniform1f(u.uFogF, env.fogF);
   gl.uniform1f(u.uTime, env.time); gl.uniform3fv(u.uWater, env.water); gl.uniform3fv(u.uWaterDeep, env.waterDeep);
   gl.uniform1f(u.uShadowOn, opt.shadow === false ? 0 : 1);
+  gl.uniform1f(u.uNight, env.night || 0); gl.uniform1i(u.uLN, env.lightN || 0); if (env.lightN) gl.uniform4fv(u.uL, env.lights);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.shTex); gl.uniform1i(u.uShadow, 0);
   const opaque = scene.meshes.filter(m => m.visible && !m.blend), trans = scene.meshes.filter(m => m.visible && m.blend).sort((a, b) => a.order - b.order);
   gl.disable(gl.BLEND);
