@@ -333,6 +333,7 @@ let world = {};           // static per-game meshes
 let bmap = new Map();     // building id -> entry
 let roadsMesh = null, depMesh = null, uMesh = null, propsMesh = null, hiMesh = null, gridMesh = null, dashMesh = null;
 let ghost = null, ghostKey = '';
+let quality = 1.75; const perf = { n: 0, sum: 0 };
 let sig = { roads: '', dep: '', props: '' };
 let curLevel = 1;
 let particles = [], smog = [];
@@ -902,11 +903,23 @@ const R3 = {
     cv = canvas; overlay = overlayEl;
     try { eng = new Engine(canvas); } catch (e) { console.warn('3D unavailable', e); return false; }
     R3.ok = true; R3.resize();
+    // The graphics driver can reset (weak GPU, sleep, too much at once). Keep the game running and rebuild the 3D view.
+    canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); R3.lost = true; });
+    canvas.addEventListener('webglcontextrestored', () => R3.restore());
     return true;
+  },
+  restore() {
+    try { eng = new Engine(cv); } catch (e) { console.warn('3D restore failed', e); return; }
+    R3.lost = false; R3._tgt = null;
+    scene.meshes = []; scene.sprites = []; scene.shadowDirty = true;
+    world = {}; bmap = new Map(); ghost = null; ghostKey = ''; particles.length = 0;
+    roadsMesh = depMesh = uMesh = propsMesh = hiMesh = gridMesh = dashMesh = null;
+    labels.forEach(l => l.el.remove()); labels.clear();
+    if (S) { const st = S; R3.load(st); R3.setLevel(curLevel || st.level, true); R3.resize(); }
   },
   resize() {
     if (!cv) return;
-    DPR = Math.min(1.75, window.devicePixelRatio || 1);
+    DPR = Math.min(quality, window.devicePixelRatio || 1);
     VW = cv.clientWidth || 1; VH = cv.clientHeight || 1;
     cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
   },
@@ -974,8 +987,13 @@ const R3 = {
   puff(tiles) { puffAt(tiles, 12); },
   _dbg() { return { hi: !!hiMesh, hiVis: hiMesh && hiMesh.visible, ghost: !!ghost, gk: ghostKey, hover: hoverState, n: scene.meshes.length, inScene: ghost ? scene.meshes.indexOf(ghost) : -2 }; },
   frame(time) {
-    if (!eng || !S) return;
+    if (!eng || !S || R3.lost) return;
     const dt = Math.min(0.1, lastT ? (time - lastT) / 1000 : 0.016); lastT = time;
+    // slow laptop: render fewer pixels so the browser stays responsive
+    if (document.visibilityState === 'visible') {
+      perf.n++; perf.sum += dt;
+      if (perf.sum > 4) { const avg = perf.sum / perf.n; perf.n = 0; perf.sum = 0; if (avg > 0.045 && quality > 0.75) { quality = Math.max(0.75, quality - 0.35); R3.resize(); } }
+    }
     if (orbit) camG.yaw += dt * 0.06;
     const k = 1 - Math.exp(-dt * 7);
     cam.tx += (camG.tx - cam.tx) * k; cam.tz += (camG.tz - cam.tz) * k; cam.dist += (camG.dist - cam.dist) * k; cam.yaw += (camG.yaw - cam.yaw) * k; cam.pitch += (camG.pitch - cam.pitch) * k;

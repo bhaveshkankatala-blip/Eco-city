@@ -90,6 +90,16 @@ async function teamNameCheck(name, roll) {
   return res;
 }
 
+/* Forms: never rely on a real form submission (sandboxed frames may block it).
+   Submit buttons become plain buttons; Enter in a field does the same thing. */
+function onSubmit(form, fn) {
+  const fake = { preventDefault() {} };
+  let busy = false;
+  const run = async () => { if (busy) return; busy = true; try { await fn(fake); } finally { busy = false; } };
+  form.addEventListener('submit', e => { e.preventDefault(); run(); });
+  form.querySelectorAll('button[type=submit]').forEach(b => { b.type = 'button'; b.addEventListener('click', run); });
+  form.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); run(); } });
+}
 /* =========================================================
    Game state
    ========================================================= */
@@ -842,7 +852,7 @@ function resume(st) {
   if (S.deadline < Date.now() + 60000) S.deadline = Date.now() + 2 * 60000;
   refresh(true); if (has3D) R3.envNow(); centerCam(false);
 }
-$('startForm').addEventListener('submit', async e => {
+onSubmit($('startForm'), async e => {
   e.preventDefault();
   const name = $('teamName').value.trim(), roll = $('teamRoll').value.trim(), phone = $('teamPhone').value.replace(/\D/g, '');
   const err = m => { $('startErr').textContent = m; $('startErr').hidden = false; };
@@ -877,7 +887,7 @@ $('rulesClose').onclick = () => { $('rulesScreen').hidden = true; };
 $('orgBtn').onclick = () => { $('pinIn').value = ''; $('pinErr').hidden = true; $('pinScreen').hidden = false; setTimeout(() => $('pinIn').focus(), 50); };
 $('startOrg').onclick = () => $('orgBtn').onclick();
 $('pinCancel').onclick = () => { $('pinScreen').hidden = true; };
-$('pinForm').addEventListener('submit', e => {
+onSubmit($('pinForm'), e => {
   e.preventDefault();
   if ($('pinIn').value.trim() !== String(settings.pin)) { $('pinErr').hidden = false; return; }
   $('pinScreen').hidden = true; openOrg();
@@ -915,7 +925,7 @@ $('lbBody').addEventListener('click', e => {
 function seg(k) { [['lb', 'segLb', 'paneLb'], ['set', 'segSet', 'paneSet'], ['game', 'segGame', 'paneGame']].forEach(([n, s, p]) => { $(s).setAttribute('aria-selected', n === k); $(p).hidden = n !== k; }); }
 $('segLb').onclick = () => seg('lb'); $('segSet').onclick = () => seg('set'); $('segGame').onclick = () => seg('game');
 $('orgClose').onclick = () => { $('orgScreen').hidden = true; };
-$('setForm').addEventListener('submit', async e => {
+onSubmit($('setForm'), async e => {
   e.preventDefault();
   const n = (id, lo, hi, d) => clamp(Math.round(+$(id).value || d), lo, hi);
   settings = { t1: n('sT1', 1, 60, 15), t2: n('sT2', 1, 60, 8), t3: n('sT3', 1, 60, 8), jump: n('sJump', 5, 10, 8), pauseSec: n('sPause', 20, 180, 90), finalPauseSec: Math.round(n('sPause', 20, 180, 90) * 2 / 3), pin: ($('sPin').value.trim() || '2026').slice(0, 12), sheetUrl: $('sSheet').value.trim(), sheetKey: settings.sheetKey || DEFAULTS.sheetKey };
@@ -948,6 +958,16 @@ function openFeedback() {
   $('fbMsg').textContent = ''; $('fbOut').hidden = true;
   $('fbScreen').hidden = false;
 }
+/* Errors: keep the game going, and remember what broke so the review can include it */
+const ERRS = [];
+function noteError(msg) {
+  msg = String(msg || 'unknown error').slice(0, 240);
+  if (ERRS.length < 6 && !ERRS.includes(msg)) ERRS.push(msg);
+  try { localStorage.setItem('ecocity2.errors', JSON.stringify(ERRS)); } catch (e) {}
+}
+window.addEventListener('error', e => noteError((e.message || 'error') + (e.lineno ? ' @' + e.lineno + ':' + e.colno : '')));
+window.addEventListener('unhandledrejection', e => noteError('promise: ' + (e.reason && (e.reason.stack || e.reason.message) || e.reason)));
+cv.addEventListener('webglcontextlost', () => { noteError('graphics reset (WebGL context lost)'); toast('The graphics restarted. Your city is safe; the view will come back in a moment.'); });
 function reviewText() {
   const where = S ? (S.over ? 'Finished: SDG score ' + (S._score != null ? S._score.toFixed(1) : '?') + ', city year ' + S.year : 'Stopped at Level ' + S.level + ', city year ' + S.year + ', ' + fmt(S.pop) + ' people') : 'Did not start a game';
   return ['EcoCity beta review' + ($('fbName').value.trim() ? ' from ' + $('fbName').value.trim() : ''),
@@ -955,13 +975,15 @@ function reviewText() {
     'Best part: ' + ($('fbGood').value.trim() || '-'),
     'Confusing/annoying: ' + ($('fbBad').value.trim() || '-'),
     'One change: ' + ($('fbIdea').value.trim() || '-'),
-    where].join('\n');
+    where,
+    'Browser: ' + navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 140) + ' | screen ' + innerWidth + 'x' + innerHeight + ' @' + (devicePixelRatio || 1),
+    'Errors: ' + (ERRS.length ? ERRS.join(' || ') : 'none')].join('\n');
 }
 if (window.ECO_CONFIG && window.ECO_CONFIG.beta) {
   $('fbBtn').hidden = false; $('resFb').hidden = false;
   $('fbBtn').onclick = openFeedback; $('resFb').onclick = openFeedback;
   $('fbClose').onclick = () => { $('fbScreen').hidden = true; };
-  $('fbForm').addEventListener('submit', e => {
+  onSubmit($('fbForm'), e => {
     e.preventDefault();
     const t = reviewText(), out = $('fbOut');
     out.value = t; out.hidden = false;
