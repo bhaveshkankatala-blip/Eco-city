@@ -1,0 +1,2 @@
+(plan)=>{const t=window.__t,S=t.S,E=t.E;for(const [type,n] of plan){let k=0;const order=S.tiles.map((x,i)=>i).sort((a,b)=>{const A=S.tiles[a],B=S.tiles[b];return Math.hypot(A.x-7,A.y-7)-Math.hypot(B.x-7,B.y-7)});for(const i of order){if(k>=n)break;if(E.canPlace(S,type,i).ok){E.build(S,type,i);k++;}}}
+Object.values(S.buildings).forEach(b=>{if(b.type==='foodFarm')b.workers=E.B.foodFarm.max}); t.refresh(true);}

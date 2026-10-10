@@ -1,0 +1,467 @@
+<title>EcoCity: Build to Last</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Lexend:wght@400;500;600&display=swap">
+<style>
+/* Layout: full-screen isometric map with floating game panels (top bar, left stats, right map/advisor, bottom build bar).
+   Single committed dark "night-sky over the valley" look. */
+:root {
+  --ink: #0a1822;          /* sky behind the island */
+  --panel: rgba(12, 30, 42, 0.92);
+  --panel-solid: #11283a;
+  --raise: #183649;
+  --line: rgba(150, 205, 225, 0.16);
+  --text: #e9f4f1;
+  --muted: #95b0b8;
+  --leaf: #62d36c;
+  --leaf-deep: #2e9a43;
+  --sun: #f5c544;
+  --water: #3fb5f2;
+  --energy: #ffd23f;
+  --jobs: #b48cf2;
+  --danger: #ef5b4c;
+  --warn: #f2a33a;
+  --smog: #9aa3ad;
+  --f-display: 'Fredoka', 'Trebuchet MS', 'Segoe UI', sans-serif;
+  --f-body: 'Lexend', 'Segoe UI', system-ui, sans-serif;
+  --r: 12px;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { margin: 0; background: var(--ink); color: var(--text); font-family: var(--f-body); font-size: 14px; overflow: hidden; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 600; margin: 0; text-wrap: balance; letter-spacing: .2px; }
+
+#app { position: relative; height: 100%; width: 100%; overflow: hidden; }
+#map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none;
+  background: radial-gradient(120% 80% at 50% 45%, #17384a 0%, #0d2231 55%, #08131b 100%); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+
+/* ---- Top bar ---- */
+#top { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; gap: 10px; align-items: stretch; pointer-events: none; }
+#top > * { pointer-events: auto; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 8px; border-radius: var(--r); background: rgba(12, 30, 42, .78); border: 1px solid var(--line); }
+.brand svg { flex: none; filter: drop-shadow(0 3px 6px rgba(0,0,0,.4)); }
+.brand b { display: block; font-family: var(--f-display); font-size: 28px; line-height: .95; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,.5); }
+.brand small { display: block; font-family: var(--f-display); letter-spacing: 4px; font-size: 11px; color: var(--leaf); text-transform: uppercase; margin-top: 3px; }
+#levelCard { flex: 1 1 340px; min-width: 0; padding: 9px 14px; display: flex; gap: 12px; align-items: center;
+  background: linear-gradient(180deg, #f3faf6, #dbeee6); color: #12303b; border: 0; }
+#levelCard .badge { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--leaf-deep); color: #fff; display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; font-size: 18px; }
+#levelCard h2 { font-size: 20px; color: #0f2a35; }
+#levelCard p { margin: 2px 0 0; font-size: 12.5px; line-height: 1.35; color: #2b4d57; }
+#clock { flex: none; padding: 8px 14px; text-align: center; min-width: 132px; }
+#clock .lab { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+#clock .t { font-family: var(--f-display); font-size: 26px; font-weight: 600; line-height: 1.1; }
+#clock .y { font-size: 12px; color: var(--muted); }
+#clock.hurry .t { color: var(--danger); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .55; } }
+#objectives { flex: 0 1 280px; min-width: 0; padding: 8px 12px; }
+#objectives h3 { font-size: 14px; margin-bottom: 4px; }
+#objectives ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+#objectives li { display: flex; gap: 7px; align-items: center; font-size: 12.5px; color: var(--muted); }
+#objectives li i { flex: none; width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--leaf-deep); }
+#objectives li.done { color: var(--text); }
+#objectives li.done i { background: var(--leaf); border-color: var(--leaf); box-shadow: inset 0 0 0 2px var(--panel-solid); }
+.iconbtns { display: flex; gap: 8px; }
+.ibtn { width: 60px; padding: 8px 4px 6px; display: grid; justify-items: center; gap: 3px; font-size: 11.5px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+.ibtn:hover { background: var(--raise); }
+.ibtn svg { width: 22px; height: 22px; }
+#finishBtn { flex: none; padding: 8px 16px; border: 0; border-radius: var(--r); display: flex; align-items: center; gap: 10px; text-align: left;
+  background: linear-gradient(180deg, #5fd36b, #279340); color: #fff; box-shadow: 0 8px 22px rgba(39,147,64,.35), inset 0 1px 0 rgba(255,255,255,.35); }
+#finishBtn:hover { filter: brightness(1.07); }
+#finishBtn b { display: block; font-family: var(--f-display); font-size: 18px; font-weight: 600; line-height: 1.1; }
+#finishBtn span { font-size: 12px; opacity: .9; }
+
+/* ---- Left stats ---- */
+#stats { position: absolute; left: 12px; top: 108px; width: 262px; padding: 8px 12px 10px; max-height: calc(100% - 108px - 236px); overflow: auto; }
+#stats h3 { font-size: 16px; margin: 2px 0 8px; display: flex; justify-content: space-between; align-items: baseline; }
+#stats h3 small { font-family: var(--f-body); font-size: 11px; color: var(--muted); font-weight: 400; }
+.stat { display: grid; grid-template-columns: 22px 1fr auto; gap: 2px 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); }
+.stat:first-of-type { border-top: 0; }
+.stat .ic { grid-row: span 2; width: 22px; height: 22px; display: grid; place-items: center; }
+.stat .k { font-size: 13px; }
+.stat .v { font-size: 13px; font-weight: 600; }
+.stat .bar { grid-column: 2 / 4; height: 6px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; }
+.stat .bar i { display: block; height: 100%; border-radius: 4px; transition: width .4s; }
+.stat .note { grid-column: 2 / 4; font-size: 11px; color: var(--muted); }
+.stat.bad .v { color: var(--danger); }
+.stat.warn .v { color: var(--warn); }
+.tank { grid-column: 2 / 4; display: flex; gap: 8px; align-items: center; font-size: 11px; color: var(--muted); }
+.tank .box { width: 46px; height: 22px; border: 2px solid var(--water); border-radius: 4px; position: relative; overflow: hidden; }
+.tank .box i { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, #6fd0ff, #2493d1); transition: height .4s; }
+
+/* ---- Right column ---- */
+#right { position: absolute; right: 12px; top: 108px; width: 272px; display: grid; gap: 10px; align-content: start; max-height: calc(100% - 108px - 272px); overflow: auto; }
+#minimapBox { padding: 10px 12px; }
+#minimapBox h3, #advisor h3, #inspector h3 { font-size: 15px; margin-bottom: 8px; }
+#minimapBox .row { display: flex; gap: 10px; }
+#minimap { width: 120px; height: 120px; border-radius: 6px; cursor: pointer; flex: none; image-rendering: pixelated; }
+.legend { display: grid; gap: 3px; font-size: 11px; color: var(--muted); align-content: start; }
+.legend span { display: flex; gap: 6px; align-items: center; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+#advisor { padding: 0; overflow: hidden; }
+#advisor .hd { display: flex; gap: 8px; align-items: center; padding: 9px 12px; background: rgba(255,255,255,.04); border-bottom: 1px solid var(--line); }
+#advisor .hd h3 { margin: 0; }
+#advisor.alert .hd { background: #8e2b25; }
+#advisor ul { list-style: none; margin: 0; padding: 8px 12px 10px; display: grid; gap: 7px; }
+#advisor li { font-size: 12.5px; line-height: 1.4; display: grid; grid-template-columns: 8px 1fr; gap: 8px; }
+#advisor li::before { content: ''; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; background: var(--leaf); }
+#advisor li.bad::before { background: var(--danger); }
+#advisor li.warn::before { background: var(--warn); }
+#advisor .event { margin: 0 12px 12px; padding: 10px; border-radius: 10px; background: linear-gradient(160deg, #5a2a17, #3b1b10); border: 1px solid rgba(255,170,90,.35); }
+#advisor .event b { font-family: var(--f-display); font-size: 16px; display: block; color: #ffd9b0; }
+#advisor .event p { margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: #f6dcc7; }
+#inspector { padding: 10px 12px 12px; }
+#inspector .kv { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 12.5px; margin: 8px 0; }
+#inspector .kv span:nth-child(odd) { color: var(--muted); }
+#inspector p { font-size: 12px; color: var(--muted); margin: 4px 0 0; line-height: 1.4; }
+#inspector input[type=range] { width: 100%; accent-color: var(--leaf); }
+.row2 { display: flex; gap: 8px; margin-top: 8px; }
+.btn { padding: 8px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--raise); font-size: 13px; }
+.btn:hover { filter: brightness(1.15); }
+.btn.primary { background: var(--leaf-deep); border-color: transparent; color: #fff; font-weight: 600; }
+.btn.danger { background: #7d2620; border-color: transparent; }
+.btn.ghost { background: transparent; }
+
+/* ---- Build bar ---- */
+#build { position: absolute; left: 12px; right: 12px; bottom: 10px; }
+#tabs { display: flex; gap: 4px; padding-left: 8px; overflow-x: auto; scrollbar-width: none; }
+#tabs button { flex: none; border: 1px solid var(--line); border-bottom: 0; border-radius: 10px 10px 0 0; padding: 7px 16px; background: rgba(13,31,43,.82); color: var(--muted); font-family: var(--f-display); font-size: 15px; font-weight: 500; }
+#tabs button[aria-selected=true] { background: #1d4d74; color: #fff; border-color: rgba(120,190,255,.35); }
+#cards { display: flex; gap: 8px; padding: 10px; overflow-x: auto; border-top-left-radius: 0; }
+.card { flex: none; width: 132px; height: 172px; overflow: hidden; padding: 4px 6px 6px; background: linear-gradient(180deg, #1a3d52, #132d3e); border: 1px solid var(--line); border-radius: 10px; text-align: center; position: relative; display: grid; gap: 2px; align-content: start; }
+.card:hover { border-color: rgba(255,255,255,.35); }
+.card[aria-pressed=true] { border-color: var(--sun); box-shadow: 0 0 0 2px var(--sun) inset; }
+.card canvas { width: 84px; height: 63px; margin: 0 auto; display: block; }
+.card .nm { font-family: var(--f-display); font-size: 13.5px; font-weight: 600; line-height: 1.15; }
+.card .pr { font-size: 12.5px; font-weight: 600; color: var(--sun); }
+.card .ch { font-size: 10.5px; color: var(--muted); line-height: 1.35; }
+.card .ch em { font-style: normal; color: var(--text); }
+.card.locked { opacity: .45; }
+.card.locked::after { content: attr(data-lock); position: absolute; top: 6px; right: 6px; font-size: 10px; padding: 2px 6px; border-radius: 6px; background: #0b1a24; color: var(--muted); }
+
+#tip { position: absolute; pointer-events: none; padding: 6px 9px; border-radius: 8px; font-size: 12px; background: #0b1a24; border: 1px solid var(--line); max-width: 240px; z-index: 5; }
+#toast { position: absolute; left: 50%; top: 112px; transform: translateX(-50%); padding: 9px 16px; border-radius: 10px; background: #0b1a24; border: 1px solid var(--line); font-size: 13px; z-index: 30; transition: opacity .3s; }
+
+/* ---- Overlays ---- */
+.overlay { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: rgba(5, 13, 19, .72); backdrop-filter: blur(4px); overflow: auto; }
+.sheet { width: min(760px, 100%); padding: 22px 24px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+.sheet h1 { font-size: 34px; }
+.sheet h2 { font-size: 22px; margin-bottom: 6px; }
+.sheet p { line-height: 1.55; color: #cfe2df; }
+.sheet .lead { color: var(--muted); margin-top: 4px; }
+.field { display: grid; gap: 6px; margin: 16px 0; }
+.field label { font-size: 13px; color: var(--muted); }
+.field input, .field select { padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: #0b1a24; color: var(--text); font: inherit; font-size: 16px; }
+.big { padding: 13px 22px; font-size: 17px; font-family: var(--f-display); font-weight: 600; border-radius: 12px; }
+.levels3 { list-style: none; counter-reset: lv; margin: 22px 0 0; padding: 0; display: grid; gap: 10px; }
+.levels3 li { counter-increment: lv; display: grid; grid-template-columns: 30px 1fr; gap: 2px 12px; font-size: 12.5px; line-height: 1.45; color: #c7d8d6; }
+.levels3 li::before { content: counter(lv); grid-row: span 2; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; font-size: 15px; color: #0d2a1a; background: var(--leaf); }
+.levels3 b { font-family: var(--f-display); font-size: 15px; color: var(--text); font-weight: 600; }
+.rules { columns: 2 280px; column-gap: 24px; font-size: 13px; line-height: 1.5; color: #cfe2df; }
+.rules h3 { font-size: 15px; color: var(--leaf); margin: 12px 0 4px; break-after: avoid; }
+.rules p, .rules ul { margin: 0 0 6px; break-inside: avoid; }
+.rules ul { padding-left: 18px; }
+.yearbig { font-family: var(--f-display); font-size: 54px; font-weight: 700; line-height: 1; }
+.chartwrap { margin-top: 12px; background: #0b1a24; border-radius: 12px; padding: 8px; border: 1px solid var(--line); }
+#chart { width: 100%; height: 200px; display: block; }
+.keyrow { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.keyrow span { display: flex; gap: 6px; align-items: center; }
+.keyrow i { width: 14px; height: 3px; border-radius: 2px; }
+.log { max-height: 130px; overflow: auto; margin-top: 10px; font-size: 12.5px; color: #cfe2df; display: grid; gap: 4px; }
+.log div b { color: var(--sun); font-weight: 600; margin-right: 6px; }
+.tstats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.tstats div { background: var(--raise); padding: 8px 10px; border-radius: 10px; }
+.tstats small { display: block; font-size: 11px; color: var(--muted); }
+.tstats b { font-family: var(--f-display); font-size: 20px; font-weight: 600; }
+.verdict { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center; margin: 14px 0; }
+.ring { width: 140px; height: 140px; }
+.sdgs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; }
+.sdg { display: grid; grid-template-columns: 30px 1fr 40px; gap: 8px; align-items: center; font-size: 12.5px; }
+.sdg .n { width: 30px; height: 30px; border-radius: 6px; display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; color: #fff; font-size: 14px; }
+.sdg .b { height: 8px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 3px; }
+.sdg .b i { display: block; height: 100%; }
+.fate { padding: 10px 14px; border-radius: 10px; font-size: 14px; }
+.fate.ok { background: rgba(98,211,108,.14); border: 1px solid rgba(98,211,108,.4); }
+.fate.dead { background: rgba(239,91,76,.14); border: 1px solid rgba(239,91,76,.45); }
+
+/* organiser */
+table.lb { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.lb th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .8px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+table.lb td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.lb tr.top1 td:first-child { color: var(--sun); font-weight: 700; }
+.lbwrap { max-height: 52vh; overflow: auto; margin-top: 10px; }
+.chip { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11.5px; }
+.chip.ok { background: rgba(98,211,108,.18); color: #9ae6a1; }
+.chip.dead { background: rgba(239,91,76,.18); color: #ff9c90; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.seg { display: flex; gap: 6px; margin-top: 10px; }
+.seg button { padding: 7px 14px; border-radius: 9px; border: 1px solid var(--line); background: transparent; }
+.seg button[aria-selected=true] { background: var(--raise); border-color: rgba(255,255,255,.3); }
+
+/* ---- 3D view additions ---- */
+body { background: #9cc9e6; }
+#map { background: #9cc9e6; cursor: grab; }
+#map:active { cursor: grabbing; }
+#tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+.tag3d { position: absolute; left: 0; top: 0; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: rgba(20, 30, 38, .9); color: #ff8b7d; border: 1.5px solid rgba(239, 91, 76, .8); box-shadow: 0 3px 8px rgba(0,0,0,.3); }
+.tag3d.used { color: #e7cfa5; border-color: rgba(200, 170, 120, .8); }
+.floaty { position: absolute; transform: translate(-50%, -100%); display: grid; justify-items: center; gap: 2px; white-space: nowrap; animation: floatUp 1.8s ease-out forwards; }
+.floaty b { font-family: var(--f-display); font-weight: 600; font-size: 15px; color: #fff; padding: 3px 10px; border-radius: 20px; background: rgba(32, 120, 60, .92); box-shadow: 0 6px 16px rgba(0,0,0,.25); }
+.floaty span { font-size: 12px; font-weight: 600; color: #ffe39a; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+@keyframes floatUp { 0% { opacity: 0; margin-top: 10px; } 12% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; margin-top: -46px; } }
+#mapCtl { position: absolute; right: 12px; bottom: 214px; display: flex; gap: 2px; padding: 4px; z-index: 2; }
+#mapCtl button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--text); }
+#mapCtl button:hover { background: var(--raise); }
+.card { width: 124px; height: 150px; }
+#cards { padding: 8px 10px; }
+.card img.thumb, .card .thumb { width: 104px; height: 78px; display: block; margin: 0 auto 2px; object-fit: contain; }
+.card .thumb.tool { display: grid; place-items: center; color: var(--muted); }
+.no3d { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); padding: 16px 20px; border-radius: 12px; background: var(--panel-solid); border: 1px solid var(--line); max-width: 420px; text-align: center; z-index: 1; }
+/* start screen over the live island */
+#startScreen { background: linear-gradient(90deg, rgba(7, 20, 28, .88) 0%, rgba(7, 20, 28, .72) 30%, rgba(7, 20, 28, 0) 56%); backdrop-filter: none; place-items: center start; padding: 16px 16px 16px max(16px, 5vw); }
+.startSheet { width: min(470px, 100%); color: var(--text); }
+.brandBig { display: flex; align-items: center; gap: 14px; }
+.brandBig svg { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)); flex: none; }
+.brandBig h1 { font-family: var(--f-display); font-weight: 700; font-size: 58px; line-height: .9; letter-spacing: .5px; text-shadow: 0 3px 14px rgba(0,0,0,.45); }
+.tagline { font-family: var(--f-display); text-transform: uppercase; letter-spacing: 7px; font-size: 14px; color: var(--leaf); margin-top: 6px; }
+.pitch { font-size: 15px; line-height: 1.6; color: #d6e6e3; margin: 18px 0 4px; max-width: 46ch; }
+.linkbtn { margin-top: 18px; background: none; border: 0; padding: 4px 0; font-size: 12px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+/* time-jump dock over the live city */
+.dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; justify-content: center; padding: 0 12px 12px; pointer-events: none; }
+.simSheet { pointer-events: auto; width: min(1180px, 100%); display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 18px; padding: 14px 18px; background: rgba(12, 28, 39, .93); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,.4); }
+.simA, .simB { min-width: 0; }
+.simSheet h2 { font-size: 19px; }
+.simSheet .lead { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.yrow { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+.simSheet .yearbig { font-size: 44px; }
+.simSheet .tstats { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 8px; }
+.simSheet .tstats b { font-size: 18px; }
+.simSheet .chartwrap { margin-top: 0; }
+.simSheet #chart { height: 128px; }
+.simC { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; }
+.simSheet .log { max-height: 66px; margin-top: 8px; }
+.simBtns { margin: 0; }
+/* what shows in each view */
+#app[data-view=start] #top, #app[data-view=start] #stats, #app[data-view=start] #right, #app[data-view=start] #build, #app[data-view=start] #mapCtl { display: none; }
+#app[data-view=sim] #stats, #app[data-view=sim] #right, #app[data-view=sim] #build, #app[data-view=sim] #mapCtl, #app[data-view=sim] #finishBtn, #app[data-view=sim] #objectives, #app[data-view=sim] #clock { display: none; }
+#app[data-view=result] #stats, #app[data-view=result] #right, #app[data-view=result] #build, #app[data-view=result] #mapCtl, #app[data-view=result] #top { display: none; }
+#resultScreen { background: rgba(5, 13, 19, .45); }
+@media (max-height: 800px) {
+  .card { height: 132px; width: 116px; }
+  .card img.thumb, .card .thumb { width: 88px; height: 64px; }
+  .card .ch { font-size: 10px; }
+  #mapCtl { bottom: 192px; }
+  #stats { max-height: calc(100% - 108px - 200px); }
+  #right { max-height: calc(100% - 108px - 246px); }
+  .stat .note { display: none; }
+  .stat .tank { display: flex; }
+  .stat { padding: 4px 0; }
+  .brandBig h1 { font-size: 48px; }
+  .pitch { font-size: 14px; margin-top: 12px; }
+  .levels3 { margin-top: 14px; gap: 7px; }
+}
+
+@media (max-width: 1180px) {
+  #objectives { display: none; }
+  #right { width: 240px; }
+}
+@media (max-width: 900px) {
+  .brand b { font-size: 22px; }
+  #levelCard p { display: none; }
+  #right { display: none; }
+  #stats { width: 210px; }
+  .tstats, .sdgs, .grid2 { grid-template-columns: 1fr; }
+  .simSheet { grid-template-columns: 1fr; }
+  #startScreen { background: rgba(7, 20, 28, .8); place-items: center; }
+  .verdict { grid-template-columns: 1fr; justify-items: center; }
+}
+@media (max-width: 620px) {
+  #top { flex-wrap: wrap; }
+  .brand, .iconbtns { display: none; }
+  #stats { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div id="app">
+  <canvas id="map" aria-label="City map. Drag to move, right-drag to rotate, scroll to zoom."></canvas>
+  <div id="tags" aria-hidden="true"></div>
+  <div id="mapCtl" class="panel" aria-label="Camera">
+    <button data-cam="l" title="Rotate left (Q)"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 11a8 8 0 1 1 2.3 5.7"/><path d="M4 5v6h6"/></svg></button>
+    <button data-cam="r" title="Rotate right (E)"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button>
+    <button data-cam="in" title="Zoom in (+)"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button data-cam="out" title="Zoom out (−)"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+    <button data-cam="home" title="Show the whole city"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  </div>
+
+  <div id="top">
+    <div class="brand">
+      <svg width="46" height="46" viewBox="0 0 48 48" aria-hidden="true"><path d="M8 40C6 22 18 8 42 6c1 22-12 35-30 34" fill="#3fbf55"/><path d="M8 40C16 30 24 22 34 14" stroke="#b8f5bf" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
+      <div><b>EcoCity</b><small>Build to last</small></div>
+    </div>
+    <div id="levelCard" class="panel"><div class="badge" id="lvlBadge">1</div><div style="min-width:0"><h2 id="lvlTitle">Level 1: Foundations</h2><p id="lvlSub"></p></div></div>
+    <div id="clock" class="panel"><div class="lab">Time left</div><div class="t num" id="clockT">25:00</div><div class="y num" id="clockY">City year 0</div></div>
+    <div id="objectives" class="panel"><h3 id="objTitle">Objectives</h3><ul id="objList"></ul></div>
+    <div class="iconbtns">
+      <button class="ibtn" id="rulesBtn" title="How to play"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01" stroke-linecap="round"/></svg>Rules</button>
+      <button class="ibtn" id="orgBtn" title="Organisers only"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Organiser</button>
+    </div>
+    <button id="finishBtn"><svg width="30" height="30" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg><div><b id="finishLabel">Finish Level 1</b><span id="finishSub">Simulate 8 years</span></div></button>
+  </div>
+
+  <section id="stats" class="panel" aria-label="City statistics">
+    <h3>City Statistics <small>per year</small></h3>
+    <div id="statList"></div>
+  </section>
+
+  <aside id="right">
+    <section id="inspector" class="panel" hidden></section>
+    <section id="advisor" class="panel"><div class="hd"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01" stroke-linecap="round"/></svg><h3 id="advTitle">City Advisor</h3></div><ul id="advList"></ul><div id="advEvent"></div></section>
+    <section id="minimapBox" class="panel"><h3>Mini Map</h3><div class="row"><canvas id="minimap" width="120" height="120"></canvas><div class="legend" id="legend"></div></div></section>
+  </aside>
+
+  <section id="build">
+    <div id="tabs" role="tablist"></div>
+    <div id="cards" class="panel"></div>
+  </section>
+
+  <div id="tip" hidden></div>
+  <div id="toast" hidden></div>
+
+  <!-- Start -->
+  <div class="overlay" id="startScreen">
+    <div class="startSheet" id="startSheet">
+      <div class="brandBig">
+        <svg width="58" height="58" viewBox="0 0 48 48" aria-hidden="true"><path d="M8 40C6 22 18 8 42 6c1 22-12 35-30 34" fill="#3fbf55"/><path d="M8 40C16 30 24 22 34 14" stroke="#d8ffd9" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
+        <div><h1>EcoCity</h1><div class="tagline">Build to last</div></div>
+      </div>
+      <p class="pitch">Plan a city on a floating island, then watch it live for up to <span id="capTxt">500</span> years. Cities that burn through their resources or choke on pollution become dead planets. Your team is ranked on the UN Sustainable Development Goals.</p>
+      <form id="startForm">
+        <div class="field"><label for="teamName">Team name</label><input id="teamName" maxlength="40" autocomplete="off" placeholder="e.g. Green Builders" required></div>
+        <div class="row2"><button class="btn primary big" type="submit">Start Level 1</button><button class="btn big ghost" type="button" id="startRules">How to play</button></div>
+      </form>
+      <div id="resumeBox" hidden style="margin-top:12px"></div>
+      <ol class="levels3">
+        <li><b>Foundations</b><span><span id="l1t">25 min</span> · 10×10 land. Free to build; land, workers and water are not.</span></li>
+        <li><b>Grow</b><span><span id="l2t">8 min</span> · Land grows 1.5×. Spend your earnings on homes, clean energy and schools.</span></li>
+        <li><b>Plan for the future</b><span><span id="l3t">10 min</span> · Prepare for drought, famine and a changing population.</span></li>
+      </ol>
+      <button type="button" class="linkbtn" id="startOrg">Organisers</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="rulesScreen" hidden>
+    <div class="sheet" style="width:min(900px,100%)">
+      <h2>How to play</h2>
+      <div class="rules">
+        <h3>The goal</h3>
+        <p>Build a city that meets its people's needs today without using up what the future needs. After Level 3 your city runs on its own until it collapses or reaches the year limit. Your score is the average of 11 SDG scores across every simulated year.</p>
+        <h3>Building</h3>
+        <ul><li>Pick a building from the bar at the bottom, then click a block on the map.</li><li>Factories only go on their own deposit: coal factory on the 3-block coal deposit, gold factory on gold, the nuclear plant on the 4-block uranium deposit, mines on natural-resource blocks.</li><li>Every building needs water to construct and to run. The reservoir (water level) refills each year from the river.</li><li>Level 1 is free to build. From Level 2 you pay with the money your city earned.</li></ul>
+        <h3>Workers</h3>
+        <p>60% of your people can work. Each building needs a minimum number of workers to run and works best at its maximum. When you run short, power stations get workers first, then food, water, services and industry.</p>
+        <h3>Between levels</h3>
+        <p>Level 1 → 2 jumps <span class="jy">8</span> years with a fixed birth and death rate. Level 2 → 3 jumps 50 years, and now your planning decides growth: hunger, thirst, pollution, crowding and unemployment shrink the population; food, homes, hospitals and jobs let it grow.</p>
+        <h3>A city dies when</h3>
+        <ul><li>its population reaches zero,</li><li>food or water stays short for 8 years in a row (overpopulation and resource depletion), or</li><li>pollution stays above 75% for 10 years in a row.</li></ul>
+        <h3>Things that run out</h3>
+        <p>Coal lasts about 30 years, gold about 60, natural-resource mines about 80 and uranium about 300 at full output. Sun, wind, rivers and well-managed farms never run out.</p>
+        <h3>Scoring</h3>
+        <p>SDG 2 Zero Hunger, 3 Health, 4 Education, 6 Water, 7 Clean Energy, 8 Decent Work, 9 Infrastructure, 11 Sustainable Cities (homes, green space and how long the city lasted), 12 Responsible Consumption, 13 Climate Action and 15 Life on Land. Ties are broken by years survived.</p>
+      </div>
+      <div class="row2" style="justify-content:flex-end"><button class="btn primary" id="rulesClose">Got it</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="confirmScreen" hidden>
+    <div class="sheet" style="width:min(480px,100%)">
+      <h2 id="cfTitle">Finish level?</h2>
+      <p id="cfText"></p>
+      <div class="row2" style="justify-content:flex-end"><button class="btn" id="cfNo">Keep planning</button><button class="btn primary" id="cfYes">Finish</button></div>
+    </div>
+  </div>
+
+  <div class="dock" id="simScreen" hidden>
+    <div class="simSheet" id="simSheet">
+      <div class="simA">
+        <h2 id="simTitle">Time passes…</h2>
+        <p class="lead" id="simLead"></p>
+        <div class="yrow"><div class="yearbig num" id="simYear">Year 0</div><div class="lead" id="simSub"></div></div>
+        <div class="tstats" id="simStats"></div>
+      </div>
+      <div class="simB">
+        <div class="chartwrap"><canvas id="chart" width="1200" height="300"></canvas>
+          <div class="keyrow"><span><i style="background:#62d36c"></i>Population</span><span><i style="background:#f5c544"></i>Money</span><span><i style="background:#c08cf0"></i>Pollution %</span><span><i style="background:rgba(242,163,58,.5);height:10px"></i>Drought</span></div></div>
+        <div class="simC"><div class="log" id="simLog"></div>
+        <div class="row2 simBtns"><button class="btn" id="simSkip">Skip ahead</button><button class="btn primary big" id="simNext" hidden>Continue</button></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="resultScreen" hidden>
+    <div class="sheet" style="width:min(820px,100%)">
+      <h2 id="resTeam">Team</h2>
+      <p class="lead">Final result</p>
+      <div class="verdict">
+        <svg class="ring" viewBox="0 0 140 140" id="resRing"></svg>
+        <div>
+          <div class="fate" id="resFate"></div>
+          <div class="tstats" id="resStats" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div>
+        </div>
+      </div>
+      <h3 style="font-size:16px;margin:6px 0 10px">SDG breakdown</h3>
+      <div class="sdgs" id="resSdgs"></div>
+      <p class="lead" id="resSaved" style="margin-top:14px"></p>
+      <div class="row2" style="justify-content:flex-end"><button class="btn primary big" id="resDone">Finish and hand over</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pinScreen" hidden>
+    <div class="sheet" style="width:min(400px,100%)">
+      <h2>Organisers only</h2>
+      <form id="pinForm"><div class="field"><label for="pinIn">Organiser PIN</label><input id="pinIn" type="password" inputmode="numeric" autocomplete="off"></div>
+      <p id="pinErr" class="lead" hidden style="color:var(--danger)">That PIN is not right.</p>
+      <div class="row2" style="justify-content:flex-end"><button class="btn" type="button" id="pinCancel">Cancel</button><button class="btn primary" type="submit">Open</button></div></form>
+    </div>
+  </div>
+
+  <div class="overlay" id="orgScreen" hidden>
+    <div class="sheet" style="width:min(980px,100%)">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:start;flex-wrap:wrap">
+        <div><h2>Organiser panel</h2><p class="lead" id="dbStatus" style="margin:0">Connecting…</p></div>
+        <button class="btn" id="orgClose">Close</button>
+      </div>
+      <div class="seg" role="tablist"><button id="segLb" aria-selected="true">Leaderboard</button><button id="segSet" aria-selected="false">Game settings</button><button id="segGame" aria-selected="false">This laptop</button></div>
+      <div id="paneLb"><div class="lbwrap"><table class="lb"><thead><tr><th>#</th><th>Team</th><th>SDG score</th><th>Years lasted</th><th>Fate</th><th>Finished</th><th></th></tr></thead><tbody id="lbBody"></tbody></table></div></div>
+      <div id="paneSet" hidden>
+        <form id="setForm">
+          <div class="grid2">
+            <div class="field"><label for="sT1">Level 1 time (minutes, 20–30)</label><input id="sT1" type="number" min="1" max="60"></div>
+            <div class="field"><label for="sT2">Level 2 time (minutes, 5–10)</label><input id="sT2" type="number" min="1" max="60"></div>
+            <div class="field"><label for="sT3">Level 3 time (minutes, 5–15)</label><input id="sT3" type="number" min="1" max="60"></div>
+            <div class="field"><label for="sJump">Years between Level 1 and 2 (5–10)</label><input id="sJump" type="number" min="5" max="10"></div>
+            <div class="field"><label for="sCap">Year limit for the final run</label><select id="sCap"><option value="500">500 years</option><option value="1000">1000 years</option></select></div>
+            <div class="field"><label for="sPin">Organiser PIN</label><input id="sPin" type="text" maxlength="12" autocomplete="off"></div>
+          </div>
+          <div class="row2"><button class="btn primary" type="submit">Save settings</button><span class="lead" id="setMsg" style="align-self:center"></span></div>
+        </form>
+      </div>
+      <div id="paneGame" hidden>
+        <p>Use these between teams if something goes wrong on this laptop.</p>
+        <div class="row2"><button class="btn danger" id="resetGame">End this team's game without saving</button></div>
+        <p class="lead" id="gameInfo"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/*ENGINE*/
+</script>
+<script>
+/*GAME*/
+</script>

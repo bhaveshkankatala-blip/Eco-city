@@ -1,0 +1,24 @@
+# build output (regenerate with: npm run build)
+dist/
+
+# dependencies (none today, but keep them out if any are added)
+node_modules/
+__pycache__/
+*.pyc
+
+# secrets and local environment
+.env
+.env.*
+!.env.example
+
+# test and editor leftovers
+tests/e2e/out/
+tests/e2e/page.html
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# large generated bundles
+*.zip
