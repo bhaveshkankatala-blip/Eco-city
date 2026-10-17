@@ -31,7 +31,9 @@ async def run_jump(pg, shot, tag):
         if await pg.evaluate(VIS, 'eventScreen'):
             n += 1
             if n == 1: await shot(f'{tag}-event')
-            await pg.click('#evChoices button >> nth=0'); continue
+            await pg.click('#evChoices button >> nth=0'); await pg.wait_for_timeout(800)
+            if n == 1: await shot(f'{tag}-event-outcome')
+            await pg.evaluate("()=>{const b=document.getElementById('evGo');if(b&&!document.getElementById('eventScreen').hidden)b.click()}"); continue
         if await pg.evaluate(VIS, 'simNext'):
             await pg.click('#simNext'); await pg.wait_for_timeout(1500)
             await shot(f'{tag}-what-happened'); await pg.click('#whNext'); await pg.wait_for_timeout(2500)

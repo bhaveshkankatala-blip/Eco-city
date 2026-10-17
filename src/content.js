@@ -30,19 +30,20 @@ window.ECO_CONTENT = {
     { title: 'Read your city, then finish', text: 'The numbers on the left are this year\'s reality. When you are ready, press Finish. After this, the game will not tell you what to build.', target: 'finish' },
   ],
   sdg: {
-    intro: 'Your score is the average of these 11 UN Sustainable Development Goals, measured every year your city lives. A city that feeds, houses, heals and employs its people for centuries, without poisoning its air or using up its land, scores highest.',
+    intro: 'Your score is the average of these 12 UN Sustainable Development Goals, measured every year your city lives. A city that feeds, houses, heals and employs its people for centuries, without poisoning its air or using up its land, scores highest.',
     goals: [
       { n: 2, name: 'Zero Hunger', what: 'Everyone has enough to eat, every year.', inGame: 'Food grown (plus stored) compared with what your people eat.' },
       { n: 3, name: 'Good Health', what: 'People live long, healthy lives.', inGame: 'Hospital care, clean air and how many people die each year.' },
       { n: 4, name: 'Quality Education', what: 'Every child gets a good education.', inGame: 'How many of your people your schools can teach.' },
-      { n: 6, name: 'Clean Water', what: 'Safe water for everyone.', inGame: 'Water supply compared with use, and a reservoir that never runs dry.' },
+      { n: 6, name: 'Clean Water', what: 'Safe water for everyone.', inGame: 'Water supply compared with use, a reservoir that never runs dry, and a river free of factory waste.' },
       { n: 7, name: 'Clean Energy', what: 'Affordable, clean power for all.', inGame: 'Enough power for the city, and how much of it is clean.' },
       { n: 8, name: 'Decent Work', what: 'Jobs for everyone who can work.', inGame: 'Share of workers with jobs, and a city that is not in debt.' },
       { n: 9, name: 'Industry & Infrastructure', what: 'Roads and industry that connect people.', inGame: 'Share of your buildings next to a road.' },
       { n: 11, name: 'Sustainable Cities', what: 'Safe homes and green, lasting cities.', inGame: 'Homes for everyone, green space, and how long your city lasts.' },
       { n: 12, name: 'Responsible Consumption', what: 'Using resources without using them up.', inGame: 'Income that does not depend on mines that run out, and food stored for bad years.' },
       { n: 13, name: 'Climate Action', what: 'Cutting pollution and its effects.', inGame: 'Low pollution, year after year.' },
-      { n: 15, name: 'Life on Land', what: 'Protecting forests and green land.', inGame: 'Green cover: empty land, parks and forests.' },
+      { n: 15, name: 'Life on Land', what: 'Protecting forests and green land.', inGame: 'Forests you plant (parks count half), land you leave wild, and how little ground you dig up.' },
+      { n: 17, name: 'Partnerships', what: 'Working together with others to reach the goals.', inGame: 'How much your neighbours trust you. Help them when they are in trouble and they will help you in yours.' },
     ],
   },
   whatHappened: {

@@ -14,7 +14,7 @@ const beta = process.argv.includes('--beta'); // review build: adds the Beta fee
 let html = src('index.html');
 let game = src('game.js');
 if (test) {
-  game = game.replace('/*TEST*/', 'window.__t={get S(){return S}, set S(v){S=v}, E, refresh, finishLevel, ui, clickTile, setHover, goLevel, showResult};');
+  game = game.replace('/*TEST*/', 'window.__t={get S(){return S}, set S(v){S=v}, E, refresh, finishLevel, ui, clickTile, setHover, goLevel, showResult, showEvent};');
 }
 // engine.js (simulation) + gl.js (WebGL engine) + world.js (3D scene) share one script tag, game.js (UI) the next
 const engine = [src('engine.js'), src('gl.js'), src('world.js')].join('\n');

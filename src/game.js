@@ -788,39 +788,60 @@ const EV_ART = (() => {
     'forest-land-offer': '<path d="M40 30l18 30H22z M40 46l20 32H20z" fill="#3fa34d"/><rect x="37" y="78" width="6" height="14" fill="#7a5232"/><path d="M80 34l16 28H64z M80 50l18 30H62z" fill="#2e8a3e"/><rect x="77" y="80" width="6" height="12" fill="#7a5232"/>',
     'college-demand': '<path d="M60 26l40 18-40 18-40-18z" fill="#4f7fb0"/><path d="M36 54v18q24 14 48 0V54l-24 11z" fill="#2f5a87"/><path d="M96 46v26" stroke="#ffd23f" stroke-width="4"/>',
     'neighbour-water': '<path d="M60 22s26 30 26 48a26 26 0 0 1-52 0c0-18 26-48 26-48z" fill="#3fb5f2"/><path d="M48 70a12 12 0 0 0 12 12" stroke="#d6f1ff" stroke-width="4" fill="none"/>',
+    'neighbour-refugees': '<path d="M14 92l26-44 26 44z" fill="#e9c46a"/><path d="M40 48v44" stroke="#8a5a2b" stroke-width="3"/><path d="M34 92l6-14 6 14z" fill="#5b3a1c"/><path d="M58 92l24-38 24 38z" fill="#f4a261"/><path d="M76 92l6-12 6 12z" fill="#5b3a1c"/><path d="M8 96h104" stroke="#6b8f4e" stroke-width="5" stroke-linecap="round"/>',
+    'neighbour-food': '<path d="M36 44q24-12 48 0l6 46q-30 12-60 0z" fill="#d9b26f"/><path d="M40 44q20-8 40 0" stroke="#8a6a3f" stroke-width="4" fill="none"/><path d="M60 30v-12M52 32l-6-10M68 32l6-10" stroke="#e9c046" stroke-width="4" stroke-linecap="round"/><text x="60" y="78" text-anchor="middle" font-size="16" font-weight="700" fill="#6b4b20">GRAIN</text>',
     'more-coal': '<path d="M20 96l20-34 18 18 14-24 28 40z" fill="#2c2a27"/><path d="M40 62l8 10M72 56l6 12" stroke="#55524c" stroke-width="4"/>',
   };
   return id => '<svg viewBox="0 0 120 120" width="150" height="150" aria-hidden="true">' + (A[id] || cloud + drops('#8fd0ff')) + '</svg>';
 })();
 let evTimer = 0;
+function trustDots(g) { const n = Math.max(0, Math.min(5, Math.round((g + 4) / 2))); return '<span class="trust" title="How much your neighbours trust you">' + Array.from({ length: 5 }, (_, i) => '<i class="' + (i < n ? 'on' : '') + '"></i>').join('') + '</span>'; }
 function showEvent(p, opt, resume) {
-  const ev = eventDef(p.eventId);
+  const ov = EVENT_TEXT[p.eventId] || {};
+  const v = E.eventView(S, p.eventId);
   const secs = opt.final ? S.cfg.finalPauseSec : S.cfg.pauseSec;
-  const shock = E.SHOCKS.includes(p.eventId);
-  $('evKind').textContent = (shock ? 'Shock' : 'Decision') + ' · Year ' + S.year;
-  $('evTitle').textContent = ev.title;
-  $('evText').textContent = ev.text;
-  $('evArt').className = 'evart ev-' + p.eventId + (shock ? ' shock' : '');
-  if (ev.image) { $('evArt').style.backgroundImage = 'url("art/' + ev.image + '")'; $('evArt').innerHTML = ''; } else { $('evArt').style.backgroundImage = ''; $('evArt').innerHTML = EV_ART(p.eventId); }
-  $('evChoices').innerHTML = ev.choices.map((c, k) => '<button class="evc" data-k="' + k + '"><b>' + escapeHtml(c.label) + '</b><span>' + escapeHtml(c.detail || '') + '</span></button>').join('');
+  const def = E.defaultChoice(p.eventId);
+  $('evKind').textContent = (v.neighbour ? 'Neighbour asks for help' : v.shock ? 'Crisis' : 'Decision') + ' · Year ' + S.year;
+  $('evTitle').textContent = ov.title || v.title;
+  $('evText').textContent = ov.text || v.text;
+  $('evArt').className = 'evart ev-' + p.eventId + (v.shock ? ' shock' : '');
+  if (ov.image) { $('evArt').style.backgroundImage = 'url("art/' + ov.image + '")'; $('evArt').innerHTML = ''; } else { $('evArt').style.backgroundImage = ''; $('evArt').innerHTML = EV_ART(p.eventId); }
+  // how hard this hits, and why (the city you built, choices you made earlier, what the neighbours remember)
+  const sevTxt = !v.shock ? '' : v.mul >= 1.3 ? 'Hits your city hard' : v.mul >= 1.1 ? 'Hits your city harder than usual' : v.mul <= 0.75 ? 'Your city is well prepared' : v.mul <= 0.92 ? 'Your city is fairly prepared' : 'An ordinary blow';
+  const sevCls = v.mul >= 1.1 ? 'bad' : v.mul <= 0.92 ? 'ok' : '';
+  $('evNotes').innerHTML = (sevTxt ? '<div class="sev ' + sevCls + '">' + sevTxt + '</div>' : '') + (v.notes.length ? '<ul>' + v.notes.map(n => '<li>' + escapeHtml(n) + '</li>').join('') + '</ul>' : '') +
+    ((v.neighbour || v.choices.some(c => c.ask)) ? '<div class="trustrow">Neighbours\' trust ' + trustDots(S.goodwill || 0) + '</div>' : '');
+  $('evNotes').hidden = !$('evNotes').innerHTML;
+  $('evChoices').innerHTML = v.choices.map((c, k) => '<button class="evc' + (c.ask ? ' ask' : '') + '" data-k="' + k + '"><b>' + escapeHtml(c.label) + '</b><span>' + escapeHtml(c.detail || '') + '</span></button>').join('');
+  $('evDefault').textContent = 'Discuss with your team. If time runs out: ' + v.choices[def].label + '.';
+  $('evOutcome').hidden = true; $('evChoices').hidden = false; $('evClock').style.visibility = '';
   $('eventScreen').hidden = false;
   if (has3D) R3.orbit(false);
   let left = secs;
   const tick = () => {
     $('evClock').textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
     $('evClock').classList.toggle('hurry', left <= 10);
-    if (left <= 0) { choose(ev.choices.length - 1, true); return; }
+    if (left <= 0) { choose(def, true); return; }
     left--; evTimer = setTimeout(tick, 1000);
   };
+  const done = () => { clearTimeout(evTimer); $('eventScreen').hidden = true; persist(); if (has3D) R3.orbit(true); resume(); };
   const choose = (k, timeout) => {
     clearTimeout(evTimer);
     $('evChoices').querySelectorAll('button').forEach(b => b.disabled = true);
     const ch = E.resolveEvent(S, p.eventId, k, EVENT_TEXT);
     if (ch && ch.news) S._lastNews = { text: ch.news, until: Date.now() + 25000 };
-    toast((timeout ? 'Time ran out: ' : '') + (ch ? ch.label : '') + (ch && ch.news ? ' — ' + ch.news : ''));
-    $('eventScreen').hidden = true; persist();
-    if (has3D) R3.orbit(true);
-    resume();
+    // show what the choice led to before the years roll on
+    $('evChoices').hidden = true; $('evNotes').hidden = true;
+    $('evOutcome').hidden = false;
+    $('evClock').style.visibility = 'hidden';
+    $('evOutTitle').textContent = (timeout ? 'Time ran out: ' : 'You chose: ') + (ch ? ch.label : '');
+    $('evOutText').textContent = (ch && ch.outcome) ? ch.outcome : (ch && ch.news ? ch.news : '');
+    $('evOutTrust').innerHTML = (E.EVENTS[p.eventId].neighbour || (ch && ch.ask)) ? 'Neighbours\' trust ' + trustDots(S.goodwill || 0) : '';
+    $('evDefault').textContent = '';
+    let n = 8; $('evGo').textContent = 'Continue (' + n + ')';
+    const t2 = () => { n--; if (n <= 0) { done(); return; } $('evGo').textContent = 'Continue (' + n + ')'; evTimer = setTimeout(t2, 1000); };
+    evTimer = setTimeout(t2, 1000);
+    $('evGo').onclick = done;
   };
   $('evChoices').onclick = e => { const b = e.target.closest('[data-k]'); if (b) choose(+b.dataset.k, false); };
   tick();
@@ -840,8 +861,9 @@ function showWhat(opt, y0) {
     .map(([k, v, c]) => '<div><small>' + k + '</small><b class="num" style="color:' + c + '">' + v + '</b></div>').join('');
   $('whDeaths').innerHTML = died.length ? '<h4>Why people died</h4>' + died.map(([k, v]) => '<div class="why"><span>' + escapeHtml(W2.causes[k] || k) + '</span><div class="b"><i style="width:' + Math.round(v / totalDied * 100) + '%" class="c-' + k + '"></i></div><b class="num">' + fmt(v) + '</b></div>').join('') : '';
   const used = Object.entries(T.used || {}).filter(([, v]) => v > 0.5).map(([k, v]) => fmt(v) + ' ' + E.UNIT[k]);
-  const evs = (T.events || []).map(e => '<li><b>' + escapeHtml(e.title) + '</b> — ' + escapeHtml(e.choice) + '</li>').join('');
-  $('whMore').innerHTML = (used.length ? '<p><b>Dug up:</b> ' + used.join(', ') + '</p>' : '') + (evs ? '<h4>Your decisions</h4><ul>' + evs + '</ul>' : '');
+  const evs = (T.events || []).map(e => '<li><b>' + escapeHtml(e.title) + '</b> — ' + escapeHtml(e.choice) + (e.outcome ? '<br><small>' + escapeHtml(e.outcome) + '</small>' : '') + '</li>').join('');
+  const cons = (S.memory || []).filter(m => m.year >= y0 && m.year <= S.year && /year \d+|hit harder|softened/.test(m.text)).map(m => '<li><b>Year ' + m.year + '</b> ' + escapeHtml(m.text) + '</li>').join('');
+  $('whMore').innerHTML = (used.length ? '<p><b>Dug up:</b> ' + used.join(', ') + '</p>' : '') + (evs ? '<h4>Your decisions</h4><ul>' + evs + '</ul>' : '') + (cons ? '<h4>Past choices catching up</h4><ul>' + cons + '</ul>' : '') + ((T.events || []).length ? '<p class="trustrow">Neighbours\' trust ' + trustDots(S.goodwill || 0) + '</p>' : '');
   $('whNext').textContent = S.dead || opt.final ? 'See your result' : 'Start Level ' + (S.level + 1);
   $('whatScreen').hidden = false;
   $('whNext').onclick = () => { $('whatScreen').hidden = true; if (S.dead || opt.final) showResult(); else { S.phase = 'plan'; opt.next(); } };
@@ -850,7 +872,7 @@ function showWhat(opt, y0) {
 /* =========================================================
    Result
    ========================================================= */
-const SDG_COL = { 2: '#DDA63A', 3: '#4C9F38', 4: '#C5192D', 6: '#26BDE2', 7: '#FCC30B', 8: '#A21942', 9: '#FD6925', 11: '#FD9D24', 12: '#BF8B2E', 13: '#3F7E44', 15: '#56C02B' };
+const SDG_COL = { 17: '#19486A', 2: '#DDA63A', 3: '#4C9F38', 4: '#C5192D', 6: '#26BDE2', 7: '#FCC30B', 8: '#A21942', 9: '#FD6925', 11: '#FD9D24', 12: '#BF8B2E', 13: '#3F7E44', 15: '#56C02B' };
 async function showResult() {
   S.phase = 'done';
   const r = E.result(S, E.CAP_YEARS);
@@ -909,7 +931,7 @@ function resume(st) {
     const pauses = o.phase ? E.pausesFor(S, o.phase) : [];
     while (o.target && S.year < o.target && !S.dead) {
       const p = pauses.find(p => p.year === S.year && !S.eventsDone.some(e => e.year === S.year));
-      if (p) E.resolveEvent(S, p.eventId, E.EVENTS[p.eventId].choices.length - 1, EVENT_TEXT);
+      if (p) E.resolveEvent(S, p.eventId, E.defaultChoice(p.eventId), EVENT_TEXT);
       E.step(S, o.mode || 'dyn');
     }
     S.phase = 'plan';

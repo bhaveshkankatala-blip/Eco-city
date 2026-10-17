@@ -142,11 +142,11 @@ test('coal blocks run out and the factory closes', () => {
   assert.strictEqual(f._dead, true);
 });
 
-test('results: 11 SDG scores between 0 and 100', () => {
+test('results: 12 SDG scores between 0 and 100', () => {
   const s = E.newGame(2024); put(s, 'foodFarm', 5); put(s, 'coalPlant', 1, 2);
   jump(s, 60, 'dyn');
   const r = E.result(s, 500);
-  assert.strictEqual(Object.keys(r.sdg).length, 11);
+  assert.strictEqual(Object.keys(r.sdg).length, 12);
   for (const v of Object.values(r.sdg)) assert.ok(v >= 0 && v <= 100, 'sdg out of range: ' + v);
 });
 
@@ -172,4 +172,34 @@ test('workers freed by a demolition wait (hold) and go where the player pins the
   target.pin = E.B.cashFarm.max; target.workers = target.pin; s.hold = 0;
   f = E.flows(s);
   assert.strictEqual(target._w, E.B.cashFarm.max, 'pinned building is staffed first');
+});
+
+test('neighbours remember: help them and they help you; refuse and no help comes', () => {
+  const ask = id => E.EVENTS[id].choices.findIndex(c => c.ask);
+  const kind = E.newGame(31); put(kind, 'foodFarm', 4); E.resetTally(kind);
+  E.resolveEvent(kind, 'neighbour-water', 0);
+  const w0 = kind.water;
+  const ch = E.resolveEvent(kind, 'monsoon-failure', ask('monsoon-failure'));
+  assert.match(ch.outcome, /helped/);
+  assert.ok(kind.water > w0 + 3000, 'neighbours send water');
+  const mean = E.newGame(31); put(mean, 'foodFarm', 4); E.resetTally(mean);
+  E.resolveEvent(mean, 'neighbour-water', 2);
+  const w1 = mean.water;
+  const ch2 = E.resolveEvent(mean, 'monsoon-failure', ask('monsoon-failure'));
+  assert.match(ch2.outcome, /turned them away/);
+  assert.strictEqual(mean.water, w1, 'no help comes');
+});
+
+test('earlier choices make later crises worse', () => {
+  const a = E.newGame(8), b = E.newGame(8);
+  for (const s of [a, b]) { put(s, 'foodFarm', 4); E.resetTally(s); }
+  E.resolveEvent(b, 'forest-land-offer', 0); // sell the hill forest
+  assert.ok(E.eventView(b, 'flood').mul > E.eventView(a, 'flood').mul, 'floods hit harder after the forest is sold');
+  assert.ok(E.eventView(b, 'flood').notes.some(n => /year/.test(n)), 'the event says why');
+});
+
+test('Life on Land is not free: an empty city does not score 100', () => {
+  const s = E.newGame(2024); put(s, 'foodFarm', 5);
+  for (let y = 0; y < 30; y++) E.step(s, 'dyn');
+  assert.ok(E.result(s, 500).sdg.land < 60);
 });

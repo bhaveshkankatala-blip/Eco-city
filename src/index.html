@@ -404,6 +404,19 @@ body { background: #9cc9e6; }
 .rarow .add { min-width: 54px; text-align: center; font-weight: 700; color: var(--leaf); }
 .rarow button { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise); font-size: 18px; line-height: 1; }
 .rarow button:disabled { opacity: .3; }
+/* event screen: why it is this bad, neighbours' trust, and the outcome */
+.evnotes { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: #0b1a24; border: 1px solid var(--line); font-size: 12.5px; }
+.evnotes ul { margin: 6px 0 0; padding-left: 18px; color: #cfe2df; display: grid; gap: 3px; }
+.evnotes .sev { font-family: var(--f-display); font-weight: 600; font-size: 14px; }
+.evnotes .sev.bad { color: #ff9c90; } .evnotes .sev.ok { color: #9ae6a1; }
+.trustrow { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+.trust { display: inline-flex; gap: 3px; } .trust i { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid #6fb6ff; }
+.trust i.on { background: #6fb6ff; }
+.evc.ask { border-color: rgba(111,182,255,.55); background: #17344a; }
+.evout { margin: 14px 0 6px; padding: 14px; border-radius: 12px; background: #0f2a3c; border: 1px solid rgba(111,182,255,.4); display: grid; gap: 6px; }
+.evout b { font-family: var(--f-display); font-size: 17px; }
+.evout p { margin: 0; color: #d6e6e3; }
+.evout .btn { justify-self: end; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
@@ -473,7 +486,7 @@ body { background: #9cc9e6; }
         <div class="grid2 tight"><div class="field"><label for="teamRoll">Team lead roll number</label><input id="teamRoll" maxlength="20" autocomplete="off" placeholder="e.g. 23CSB0A12"></div>
         <div class="field"><label for="teamPhone">Phone number</label><input id="teamPhone" maxlength="14" inputmode="numeric" autocomplete="off" placeholder="10 digits"></div></div>
         <p class="lead" id="startErr" hidden style="color:#ff9c90;margin:0 0 8px"></p>
-        <div class="row2"><button class="btn primary big" type="submit" id="startGo">Start Level 1</button><button class="btn big ghost" type="button" id="startRules">How to play</button><button class="btn big ghost" type="button" id="startSdg">The 11 goals</button></div>
+        <div class="row2"><button class="btn primary big" type="submit" id="startGo">Start Level 1</button><button class="btn big ghost" type="button" id="startRules">How to play</button><button class="btn big ghost" type="button" id="startSdg">The 12 goals</button></div>
       </form>
       <div id="resumeBox" hidden style="margin-top:12px"></div>
       <ol class="levels3">
@@ -490,7 +503,7 @@ body { background: #9cc9e6; }
       <h2>How to play</h2>
       <div class="rules">
         <h3>The goal</h3>
-        <p>1,000 people live on your island: 300 children, 600 adults and 100 elderly. Build a city that keeps them, and their children's children, fed and safe until year 500. Your score is the average of 11 UN goals across every year your city lives.</p>
+        <p>1,000 people live on your island: 300 children, 600 adults and 100 elderly. Build a city that keeps them, and their children's children, fed and safe until year 500. Your score is the average of 12 UN goals across every year your city lives.</p>
         <h3>Building</h3>
         <ul><li>Pick a building from the bar at the bottom, then click a block on the map.</li><li>Coal, gold, uranium and mineral blocks are scattered. Click one to see how much is in it. A factory covers 1 or more connected blocks: choose the size and press <b>Next path</b> (or R) to change the shape.</li><li>Farms and other buildings may use spare resource blocks, but to mine there later you must demolish them first.</li><li>Level 1 is free. From Level 2 you pay with the money your city earned, and can upgrade factories (one more block) and homes (rooftop solar, rainwater harvesting).</li></ul>
         <h3>People</h3>
@@ -499,12 +512,14 @@ body { background: #9cc9e6; }
         <p>Rain comes from your city: forests and empty land bring it, pollution drives it away. Farms, dams and rivers depend on it.</p>
         <h3>Time</h3>
         <p>After Level 1, <span class="jy">8</span> years pass. After Level 2, 50 years pass with a stop every 10 years: something happens and you have 90 seconds to choose. After Level 3 the city runs alone to year 500 with five big moments. Every team faces the same four shocks (monsoon failure, heatwave, disease, a fuel price crash) in a different order.</p>
+        <h3>Neighbours remember</h3>
+        <p>Neighbouring towns will ask for your help. Help them and they trust you, trade more with you and send help in your own crises. Turn them away and they remember. Your choices in one crisis can make the next one worse, and how hard a crisis hits depends on the city you built.</p>
         <h3>A city dies when</h3>
         <ul><li>nobody is left,</li><li>food or water stays short for 8 years in a row, or</li><li>pollution stays above 75% for 10 years in a row.</li></ul>
         <h3>Reading your city</h3>
         <p>The numbers on the left are this year's reality. A number turns red only when something is failing right now. The Island Times reports what people are saying. Nobody will tell you what to build.</p>
       </div>
-      <div class="row2" style="justify-content:flex-end"><button class="btn" id="rulesSdg">The 11 goals</button><button class="btn primary" id="rulesClose">Got it</button></div>
+      <div class="row2" style="justify-content:flex-end"><button class="btn" id="rulesSdg">The 12 goals</button><button class="btn primary" id="rulesClose">Got it</button></div>
     </div>
   </div>
 
@@ -551,8 +566,10 @@ body { background: #9cc9e6; }
         <div class="evtop"><span class="evkind" id="evKind"></span><span class="evclock num" id="evClock">1:30</span></div>
         <h2 id="evTitle"></h2>
         <p id="evText"></p>
+        <div class="evnotes" id="evNotes" hidden></div>
         <div class="evchoices" id="evChoices"></div>
-        <p class="lead" style="font-size:12px">Discuss with your team. If time runs out, the last choice is taken.</p>
+        <div class="evout" id="evOutcome" hidden><b id="evOutTitle"></b><p id="evOutText"></p><div id="evOutTrust" class="trustrow"></div><button class="btn primary" id="evGo">Continue</button></div>
+        <p class="lead" id="evDefault" style="font-size:12px"></p>
       </div>
     </div>
   </div>
@@ -571,7 +588,7 @@ body { background: #9cc9e6; }
 
   <div class="overlay" id="sdgScreen" hidden>
     <div class="sheet" style="width:min(980px,100%)">
-      <h2>The 11 goals your city is scored on</h2>
+      <h2>The 12 goals your city is scored on</h2>
       <p class="lead" id="sdgIntro"></p>
       <div class="sdggrid" id="sdgGrid"></div>
       <div class="row2" style="justify-content:flex-end"><button class="btn primary" id="sdgClose">Close</button></div>
