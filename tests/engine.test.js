@@ -117,10 +117,11 @@ test('rain falls when forests are replaced by buildings and pollution rises', ()
   assert.ok(E.flows(s).rain < r0 - 0.2);
 });
 
-test('every team gets all four shocks plus five other events, in its own order', () => {
+test('every team gets all four shocks, a flood, two new crises, two neighbours and three choices, in its own order', () => {
   const a = E.newGame(10), b = E.newGame(20);
   for (const s of [a, b]) {
-    assert.strictEqual(s.schedule.length, 9);
+    assert.strictEqual(s.schedule.length, 12);
+    assert.ok(s.schedule.includes('flood'));
     for (const shock of E.SHOCKS) assert.ok(s.schedule.includes(shock));
   }
   assert.notDeepStrictEqual(a.schedule, b.schedule);
@@ -142,11 +143,11 @@ test('coal blocks run out and the factory closes', () => {
   assert.strictEqual(f._dead, true);
 });
 
-test('results: 12 SDG scores between 0 and 100', () => {
+test('results: 13 SDG scores between 0 and 100', () => {
   const s = E.newGame(2024); put(s, 'foodFarm', 5); put(s, 'coalPlant', 1, 2);
   jump(s, 60, 'dyn');
   const r = E.result(s, 500);
-  assert.strictEqual(Object.keys(r.sdg).length, 12);
+  assert.strictEqual(Object.keys(r.sdg).length, 13);
   for (const v of Object.values(r.sdg)) assert.ok(v >= 0 && v <= 100, 'sdg out of range: ' + v);
 });
 
@@ -202,4 +203,39 @@ test('Life on Land is not free: an empty city does not score 100', () => {
   const s = E.newGame(2024); put(s, 'foodFarm', 5);
   for (let y = 0; y < 30; y++) E.step(s, 'dyn');
   assert.ok(E.result(s, 500).sdg.land < 60);
+});
+
+test('v5: families grow whether or not there is food, and hunger kills', () => {
+  const s = E.newGame(77); put(s, 'foodFarm', 1); E.resetTally(s);
+  const r = E.rates(s, E.flows(s), 'grow');
+  assert.ok(r.per1000.births > 40, 'births do not wait for food');
+  for (let y = 0; y < 6; y++) E.step(s, 'grow');
+  assert.ok(s.tally.died.hunger > 300, 'many starve');
+});
+
+test('v5: Level 1 has a budget; farms are free but capped; one small coal plant', () => {
+  const s = E.newGame(777);
+  assert.strictEqual(s.money, E.L1_BUDGET);
+  assert.strictEqual(put(s, 'foodFarm', 20), 10, 'only 10 food farms in Level 1');
+  assert.strictEqual(s.money, E.L1_BUDGET, 'farms are free');
+  const coal = s.tiles.findIndex((t, i) => t.t === 'coal' && E.inLevel(1, t.x, t.y) && E.factoryPaths(s, 'coalPlant', i, 3).length);
+  if (coal >= 0) assert.strictEqual(E.canPlace(s, 'coalPlant', coal, { size: 3 }).ok, false, 'max 2 coal blocks');
+});
+
+test('v5: a city that builds nothing scores very low; debt and lost lives cost points', () => {
+  const s = E.newGame(4242); E.resetTally(s); E.beginEra(s, 1, 8);
+  for (let y = 0; y < 8 && !s.dead; y++) E.step(s, 'grow');
+  E.startLevel(s, 2); s.jumpStart = s.year; E.beginEra(s, 2, 50);
+  for (let y = 0; y < 50 && !s.dead; y++) E.step(s, 'dyn');
+  const r = E.result(s, 500);
+  assert.ok(r.score < 15, 'build-nothing score ' + r.score);
+  assert.strictEqual(r.rounds.length, 3);
+});
+
+test('v5: SDG 1 No Poverty falls when the city runs at a loss', () => {
+  const a = E.newGame(5), b = E.newGame(5);
+  for (const s of [a, b]) { put(s, 'foodFarm', 6); E.resetTally(s); }
+  b.money = -500;
+  E.step(a, 'grow'); E.step(b, 'grow');
+  assert.ok(b.sdgSum.poverty < a.sdgSum.poverty);
 });

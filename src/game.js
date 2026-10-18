@@ -193,10 +193,20 @@ function renderMinimap() {
     g.globalAlpha = locked ? .25 : 1; g.fillStyle = col; g.fillRect(t.x * s + .5, t.y * s + .5, s - 1, s - 1);
   });
   g.globalAlpha = 1;
+  // a warning mark on buildings that are closed for lack of workers (red) or have used up their resource (amber)
+  g.font = 'bold ' + Math.round(s * 0.95) + 'px Lexend, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  Object.values(S.buildings).forEach(b => {
+    const d = B[b.type]; if (!d.min) return;
+    const bad = b._dead ? '#f2a33a' : !(b._eff > 0) ? '#ff4d3d' : null; if (!bad) return;
+    const t = S.tiles[b.tiles[0]], cx = t.x * s + s / 2, cy = t.y * s + s / 2;
+    g.fillStyle = bad; g.beginPath(); g.arc(cx, cy, s * 0.55, 0, 7); g.fill();
+    g.fillStyle = '#fff'; g.fillText('!', cx, cy + 0.5);
+  });
 }
 function buildLegend() {
   const items = [['Housing', 'housing'], ['Farms', 'agri'], ['Industry', 'industry'], ['Energy', 'energy'], ['Services', 'services'], ['Green', 'green'], ['Water', 'water'], ['Road', 'infra'], ['Resource', 'res'], ['Empty', 'empty']];
-  $('legend').innerHTML = items.map(([n, k]) => '<span><i style="background:' + MM_COL[k] + '"></i>' + n + '</span>').join('');
+  $('legend').innerHTML = items.map(([n, k]) => '<span><i style="background:' + MM_COL[k] + '"></i>' + n + '</span>').join('') +
+    '<span><i class="mmwarn">!</i>No workers</span><span><i class="mmwarn used">!</i>Used up</span>';
 }
 
 /* =========================================================
@@ -220,7 +230,8 @@ function renderStats() {
   const o = E.outlook(S), f = o.f, r = o.rates; ui.flows = f; ui.rates = r;
   const foodNow = f.food + S.foodStore, waterNow = f.water + S.water * 0.1;
   const h = [];
-  h.push(statRow('pop', 'People', fmt(S.pop), fmt(S.kids) + ' children · ' + fmt(S.adults) + ' adults · ' + fmt(S.elders) + ' elderly'));
+  h.push(statRow('pop', 'People', fmt(S.pop), 'All ages together'));
+  h.push('<div class="ages"><div><b class="num">' + fmt(S.kids) + '</b><span>Children<br>0–14</span></div><div class="work"><b class="num">' + fmt(S.adults) + '</b><span>Working age<br>15–59 · ' + fmt(f.workforce) + ' can work</span></div><div><b class="num">' + fmt(S.elders) + '</b><span>Elderly<br>60+</span></div></div>');
   const homeless = Math.max(0, S.pop - f.cap);
   h.push(statRow('home', 'Homes', fmt(f.cap), homeless ? fmt(homeless) + ' people in slums' : 'Places to live', homeless > 0));
   h.push(statRow('food', 'Food', fmt(f.food) + ' / yr', 'Grown a year · eaten ' + fmt(f.foodDemand) + (f.foodCap ? ' · stored ' + fmt(S.foodStore) : ''), foodNow < f.foodDemand));
@@ -232,8 +243,7 @@ function renderStats() {
   h.push(statRow('energy', 'Energy', fmt(f.gen) + ' / yr', 'Used ' + fmt(f.eDemand) + ' · ' + Math.round(f.cleanShare * 100) + '% clean', f.gen < f.eDemand));
   h.push(statRow('jobs', 'Jobs', fmt(f.jobs), 'Workers ' + fmt(f.workforce) + ' · ' + fmt(f.unemployed) + ' without work' + (f.unstaffed ? ' · ' + f.unstaffed + ' building' + (f.unstaffed > 1 ? 's' : '') + ' closed' : ''), f.unstaffed > 0 || (f.workforce && f.unemployed / f.workforce > 0.15)));
   if (S.hold > 0 && S.phase === 'plan') h.push('<button class="holdchip" id="holdBtn">' + fmt(S.hold) + ' free workers waiting · Assign them</button>');
-  if (S.level === 1) h.push(statRow('money', 'Earnings', (f.net >= 0 ? '+' : '') + money(f.net) + ' / yr', 'Building is free now; earnings are saved for Level 2', f.net < 0));
-  else h.push(statRow('money', 'Money', money(S.money), (f.net >= 0 ? '+' : '') + money(f.net) + ' a year after upkeep', S.money < 0));
+  h.push(statRow('money', S.level === 1 ? 'Budget left' : 'Money', money(S.money), (f.net >= 0 ? '+' : '') + money(f.net) + ' a year after upkeep' + (f.net < 0 ? ': losing money hurts SDG 1, No Poverty' : ''), S.money < 0 || f.net < 0));
   h.push(statRow('pol', 'Pollution', Math.round(S.pollution) + '%', 'Air quality', S.pollution > 75));
   h.push(statRow('rain', 'Rain', Math.round(f.rain * 100) + '%', f.drought ? 'Drought: well below normal' : 'Of a normal monsoon', f.drought));
   $('statList').innerHTML = h.join('');
@@ -401,15 +411,23 @@ $('raDone').onclick = () => closeRealloc(false);
 $('raAuto').onclick = () => closeRealloc(true);
 
 /* Build bar */
+// grouped by what each building does, not by the level it unlocks in
 const TABS = [
-  ['agri', 'Agriculture', ['foodFarm', 'cashFarm']],
-  ['industry', 'Industry', ['coalPlant', 'goldFactory', 'mineralMine', 'nuclear', 'itPark']],
+  ['agri', 'Food', ['foodFarm', 'cashFarm', 'granary']],
+  ['energy', 'Energy', ['coalPlant', 'nuclear', 'solar', 'wind', 'dam', 'battery']],
+  ['industry', 'Industry & jobs', ['goldFactory', 'mineralMine', 'itPark']],
   ['housing', 'Housing', ['house', 'community', 'apartment']],
-  ['energy', 'Energy', ['solar', 'wind', 'dam', 'battery']],
-  ['infra', 'Development', ['road', 'school', 'waterPlant']],
-  ['services', 'Future planning', ['granary', 'hospital', 'recycling', 'park', 'forest']],
-  ['tools', 'Tools', ['inspect', 'demolish']],
+  ['services', 'Services', ['school', 'hospital', 'waterPlant', 'recycling']],
+  ['infra', 'Roads', ['road']],
+  ['green', 'Green', ['park', 'forest']],
+  ['tools', 'Inspect & demolish', ['inspect', 'demolish']],
 ];
+function l1Left(type) { const c = E.L1_CAPS[type]; if (!c || S.level !== 1) return null; return Math.max(0, c.n - Object.values(S.buildings).filter(b => b.type === type).length); }
+function priceText(type) {
+  const d = B[type], c = E.L1_CAPS[type], left = l1Left(type);
+  const base = S.level === 1 && E.L1_FREE && type in { foodFarm: 1, cashFarm: 1 } ? 'Free' : money(d.cost) + (d.perBlock ? '/block' : '');
+  return left == null ? base : base + ' · ' + left + ' left';
+}
 const previews = {};
 function chips(type) {
   const d = B[type], c = [], pb = d.perBlock ? ' per block' : '';
@@ -419,7 +437,6 @@ function chips(type) {
   if (d.econ) c.push('<em>+' + money(d.econ) + '</em>/yr' + pb);
   if (d.waterIn) c.push('<em>+' + fmt(d.waterIn) + '</em> water');
   if (d.wR) c.push('−' + fmt(d.wR) + ' water');
-  if (d.min) c.push(fmt(d.min) + '–' + fmt(d.max) + ' workers');
   if (d.pol >= 1) c.push('+' + fmt(d.pol) + ' pollution');
   if (d.absorb) c.push('<em>−' + fmt(d.absorb) + '</em> pollution');
   if (d.edu) c.push('teaches ' + fmt(d.edu));
@@ -427,7 +444,30 @@ function chips(type) {
   if (d.foodCap) c.push('stores ' + fmt(d.foodCap) + ' food');
   if (d.firmFor) c.push('steadies 4 solar/wind');
   if (type === 'road') c.push('+15% to neighbours');
-  return c.slice(0, 3).join(' · ');
+  // workers always first, so teams know who each building needs
+  return (d.min ? '<b class="wk">' + fmt(d.min) + '–' + fmt(d.max) + ' workers</b>' : '<b class="wk">No workers needed</b>') + c.slice(0, 2).map(x => '<br>' + x).join('');
+}
+// full details of a card, shown in the strip above the cards (hover or selected)
+function cardInfo(type) {
+  if (type === 'inspect') return '<b>Inspect</b> Click any building to see its workers, output and upgrades, or a resource block to see what is left in it. Esc to stop.';
+  if (type === 'demolish') return '<b>Demolish</b> Click a building to remove it. Money and water spent are not returned; its workers wait for you to place them.';
+  const d = B[type], pb = d.perBlock ? ' per block' : '', c = [];
+  c.push(d.min ? fmt(d.min) + '–' + fmt(d.max) + ' workers' + pb : 'no workers needed');
+  if (d.cap) c.push(fmt(d.cap) + ' homes'); if (d.food) c.push('+' + fmt(d.food) + ' food/yr'); if (d.gen) c.push('+' + fmt(d.gen) + ' energy/yr' + pb);
+  if (d.econ) c.push('+' + money(d.econ) + '/yr' + pb); if (d.waterIn) c.push('+' + fmt(d.waterIn) + ' water/yr'); if (d.wR) c.push('uses ' + fmt(d.wR) + ' water/yr');
+  if (d.energy) c.push('uses ' + fmt(d.energy) + ' energy/yr'); if (d.pol >= 1) c.push('+' + fmt(d.pol) + ' pollution/yr' + pb); if (d.absorb) c.push('cleans ' + fmt(d.absorb) + ' pollution/yr');
+  if (d.edu) c.push('teaches ' + fmt(d.edu)); if (d.health) c.push('cares for ' + fmt(d.health)); if (d.foodCap) c.push('stores ' + fmt(d.foodCap) + ' food');
+  if (d.maint) c.push('upkeep ' + money(d.maint) + '/yr' + pb);
+  const lock = d.lvl > S.level ? ' <span class="lk">Unlocks in Level ' + d.lvl + '</span>' : '';
+  return '<b>' + d.name + '</b>' + lock + ' <span class="pr">' + priceText(type) + '</span> ' + escapeHtml(d.desc) + '<br><span class="facts">' + c.join(' · ') + '</span>';
+}
+function showCardInfo(type) {
+  const el = $('cardInfo'); const t = type;
+  if (!t || viewMode !== 'plan') { el.hidden = true; return; }
+  el.innerHTML = cardInfo(t); el.hidden = false;
+  // sit just above the tabs, whatever the screen height
+  const app = $('app').getBoundingClientRect(), bt = $('tabs').getBoundingClientRect();
+  el.style.bottom = Math.round(app.bottom - bt.top + 6) + 'px';
 }
 function renderTabs() { $('tabs').innerHTML = TABS.map(([k, n]) => '<button role="tab" data-tab="' + k + '" aria-selected="' + (ui.tab === k) + '">' + n + '</button>').join(''); }
 function renderCards() {
@@ -435,14 +475,15 @@ function renderCards() {
   const html = [];
   tab[2].forEach(type => {
     if (type === 'inspect' || type === 'demolish') {
-      html.push('<button class="card" data-type="' + type + '" aria-pressed="' + (ui.tool === type) + '"><div class="thumb tool">' + (type === 'inspect' ? '<svg viewBox="0 0 24 24" width="34" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21" stroke-linecap="round"/></svg>' : '<svg viewBox="0 0 24 24" width="34" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 20V9l6-4 6 4v11" /><path d="M3 3l18 18" stroke="#ef5b4c" stroke-linecap="round"/></svg>') + '</div><div class="nm">' + (type === 'inspect' ? 'Inspect' : 'Demolish') + '</div><div class="ch">' + (type === 'inspect' ? 'Click a building or resource block for details' : 'Remove a building. Nothing is refunded.') + '</div></button>');
+      html.push('<button class="card tool' + type + '" data-type="' + type + '" aria-pressed="' + (ui.tool === type) + '"><div class="thumb tool">' + (type === 'inspect' ? '<svg viewBox="0 0 24 24" width="34" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21" stroke-linecap="round"/></svg>' : '<svg viewBox="0 0 24 24" width="34" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 20V9l6-4 6 4v11" /><path d="M3 3l18 18" stroke="#ef5b4c" stroke-linecap="round"/></svg>') + '</div><div class="nm">' + (type === 'inspect' ? 'Inspect' : 'Demolish') + '</div><div class="ch">' + (type === 'inspect' ? 'Click a building: workers, output, upgrades' : 'Remove a building. Nothing is refunded.') + '</div></button>');
       return;
     }
     const d = B[type], locked = d.lvl > S.level;
-    const price = S.level === 1 ? 'Free now' : money(d.cost) + (d.perBlock ? '/block' : '');
+    const price = priceText(type);
     html.push('<button class="card' + (locked ? ' locked' : '') + '" data-type="' + type + '" data-lock="Level ' + d.lvl + '" aria-pressed="' + (ui.tool === type) + '" title="' + d.desc.replace(/"/g, '') + '"><span class="pv" data-pv="' + type + '"></span><div class="nm">' + d.name + '</div><div class="pr">' + (locked ? 'Unlocks in Level ' + d.lvl : price) + '</div><div class="ch">' + chips(type) + '</div></button>');
   });
   $('cards').innerHTML = html.join('');
+  showCardInfo(null);
   $('cards').querySelectorAll('[data-pv]').forEach(sp => { const t = sp.dataset.pv; if (previews[t] === undefined) previews[t] = has3D ? R3.thumb(t) : null; const im = document.createElement('img'); im.alt = ''; im.className = 'thumb'; if (previews[t]) im.src = previews[t]; sp.replaceWith(im); });
   renderPicker();
 }
@@ -459,7 +500,7 @@ function renderPicker() {
   $('fpSizes').innerHTML = Array.from({ length: d.maxBlocks }, (_, k) => k + 1).map(n => '<button data-size="' + n + '" aria-pressed="' + (ui.size === n) + '"' + (onRes && n > maxHere ? ' disabled' : '') + '>' + n + '</button>').join('');
   $('fpPath').textContent = onRes ? (paths.length ? 'Path ' + ((ui.path % paths.length) + 1) + ' of ' + paths.length : 'No room') : 'Point at a ' + E.labelFor(d.on) + ' block';
   $('fpNext').disabled = !(paths.length > 1);
-  $('fpCost').textContent = S.level === 1 ? 'Free in Level 1' : money(d.cost * ui.size);
+  $('fpCost').textContent = money(d.cost * ui.size) + (S.level === 1 && E.L1_CAPS[ui.tool] && E.L1_CAPS[ui.tool].blocks ? ' · Level 1: max ' + E.L1_CAPS[ui.tool].blocks + ' blocks' : '');
 }
 $('fpSizes').addEventListener('click', e => { const b = e.target.closest('[data-size]'); if (!b) return; ui.size = +b.dataset.size; ui.path = 0; renderPicker(); setHover(ui.hover); });
 $('fpNext').onclick = () => { ui.path++; renderPicker(); setHover(ui.hover); };
@@ -514,7 +555,7 @@ cv.addEventListener('pointerleave', () => { setHover(-1); $('tip').hidden = true
 cv.addEventListener('pointerup', e => {
   const d = drag; drag = null;
   if (!d || d.moved || !S || S.phase !== 'plan' || !has3D) return;
-  if (d.btn === 2) { ui.tool = null; R3.grid(false); setHover(-1); renderCards(); $('tip').hidden = true; return; }
+  if (d.btn === 2) { ui.tool = null; R3.grid(false); setHover(-1); renderCards(); markResources(); renderMode(); $('tip').hidden = true; return; }
   const r = cv.getBoundingClientRect(); const i = R3.pick(e.clientX - r.left, e.clientY - r.top);
   if (i < 0) return;
   clickTile(i);
@@ -524,6 +565,7 @@ cv.addEventListener('wheel', e => { e.preventDefault(); if (!has3D) return; cons
 window.addEventListener('keydown', e => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
   if (e.key === 'Escape' && ra) { closeRealloc(true); return; }
+  if (e.key === 'Escape') { setTimeout(() => { markResources(); renderMode(); showCardInfo(null); }, 0); }
   if (e.key === 'Escape') { ui.tool = null; ui.sel = null; ui.selTile = -1; if (has3D) { R3.grid(false); R3.select(null); } if (S) refresh(); }
   if (!has3D || viewMode !== 'plan') return;
   const k = e.key.toLowerCase();
@@ -561,6 +603,7 @@ function clickTile(i) {
   const placed = S.buildings[r.id];
   refresh(); persist();
   floatText(placed.tiles, effectLine(placed), r.cost ? '−' + money(r.cost) : '');
+  markResources(); renderCards();
   setHover(i);
   guideEvent('built', placed.type);
 }
@@ -605,8 +648,28 @@ $('cards').addEventListener('click', e => {
   if (isBuildTool(ui.tool)) { ui.sel = null; ui.selTile = -1; if (has3D) R3.select(null); }
   if (has3D) R3.grid(isBuildTool(ui.tool));
   renderCards(); renderInspector(); setHover(ui.hover);
+  markResources(); renderMode();
   guideEvent('tool', type);
 });
+$('cards').addEventListener('mouseover', e => { const c = e.target.closest('[data-type]'); if (c) showCardInfo(c.dataset.type); });
+$('cards').addEventListener('mouseleave', () => showCardInfo(null));
+// a factory tool marks every free block of its resource on your land with a red box
+function markResources() {
+  if (!has3D) return;
+  const d = ui.tool && B[ui.tool];
+  if (!d || !d.on || d.on === 'river') { R3.marks([]); return; }
+  R3.marks(S.tiles.map((t, i) => i).filter(i => { const t = S.tiles[i]; return t.t === d.on && !t.b && t.res > 0 && E.inLevel(S.level, t.x, t.y); }));
+}
+// what the current tool does, in plain words, at the top of the map
+function renderMode() {
+  const el = $('modeBar'), t = ui.tool;
+  if (!t || viewMode !== 'plan') { el.hidden = true; return; }
+  const d = B[t];
+  el.innerHTML = t === 'inspect' ? '<b>Inspect</b> Click any building to see its workers, output and upgrades. Click a resource block to see what is left. <kbd>Esc</kbd> to stop.'
+    : t === 'demolish' ? '<b>Demolish</b> Click a building to remove it. Nothing is refunded. <kbd>Esc</kbd> to stop.'
+    : '<b>Building: ' + d.name + '</b> ' + (d.on && d.on !== 'river' ? 'Click a ' + E.labelFor(d.on) + ' block (marked in red).' : d.on === 'river' ? 'Click a river block.' : 'Click an empty block on your land.') + ' Needs ' + (d.min ? fmt(d.min) + '–' + fmt(d.max) + ' workers' + (d.perBlock ? ' per block' : '') : 'no workers') + '. <kbd>Esc</kbd> or right-click to stop.';
+  el.hidden = false;
+}
 $('minimap').addEventListener('click', e => { const r = e.target.getBoundingClientRect(), sc = r.width / W; if (has3D) R3.lookTile(Math.floor((e.clientX - r.left) / sc), Math.floor((e.clientY - r.top) / sc)); });
 
 let toastT = 0;
@@ -670,7 +733,7 @@ function confirmBox(title, text, yes, onYes) {
 function closeAll() { ['confirmScreen', 'rulesScreen', 'pinScreen', 'sdgScreen'].forEach(id => $(id).hidden = true); guide = null; showGuideStep(); }
 $('finishBtn').onclick = () => {
   if (!S || S.phase !== 'plan') return;
-  const msg = S.level === 1 ? S.cfg.jump + ' years will pass. Couples will have their children; whether those children live depends on the food, water and jobs you planned. Money earned is saved for Level 2.'
+  const msg = S.level === 1 ? S.cfg.jump + ' years will pass. Couples will have their children whether or not there is food for them; if there is not, people starve. Money left over and earned is saved for Level 2.'
     : S.level === 2 ? '50 years will pass, with a stop every 10 years for something your city must deal with. You cannot build during the jump.'
     : 'Your city will run on its own to year ' + E.CAP_YEARS + ', with a few big moments to decide. You cannot build after this. Your result goes to the organisers.';
   confirmBox(S.level < 3 ? 'Finish Level ' + S.level + '?' : 'Submit your city?', msg, S.level < 3 ? 'Finish level' : 'Submit city', finishLevel);
@@ -681,8 +744,10 @@ function finishLevel() {
   S.hold = 0;
   sheetSend({ action: 'update', id: S.gameId, status: 'Playing', level: S.level < 3 ? 'Time jump after L' + S.level : 'Final run', year: S.year });
   ui.tool = null; ui.sel = null; ui.selTile = -1; guide = null; showGuideStep(); $('fpick').hidden = true;
+  if (has3D) R3.marks([]); $('modeBar').hidden = true;
+  E.beginEra(S, S.level, S.level === 1 ? S.cfg.jump : S.level === 2 ? 50 : E.CAP_YEARS - S.year);
   if (S.level === 1) runSim({ years: S.cfg.jump, mode: 'grow', title: 'Level 1 → Level 2', lead: S.cfg.jump + ' years pass. Couples start their families.', next: () => goLevel(2) });
-  else if (S.level === 2) { S.jumpStart = S.year; runSim({ years: 50, mode: 'dyn', phase: 'jump2', title: 'Level 2 → Level 3', lead: '50 years pass, with a stop every 10 years.', next: () => goLevel(3) }); }
+  else if (S.level === 2) { S.jumpStart = S.year; runSim({ years: 50, mode: 'dyn', phase: 'jump2', title: 'Level 2 → Level 3', lead: '50 years pass, with six stops for crises and decisions.', next: () => goLevel(3) }); }
   else { S.finalStart = S.year; runSim({ years: E.CAP_YEARS - S.year, mode: 'dyn', phase: 'final', final: true, title: 'The city runs on its own', lead: 'No more building. Will your city still stand in year ' + E.CAP_YEARS + '?', next: showResult }); }
 }
 function goLevel(l) {
@@ -790,6 +855,10 @@ const EV_ART = (() => {
     'neighbour-water': '<path d="M60 22s26 30 26 48a26 26 0 0 1-52 0c0-18 26-48 26-48z" fill="#3fb5f2"/><path d="M48 70a12 12 0 0 0 12 12" stroke="#d6f1ff" stroke-width="4" fill="none"/>',
     'neighbour-refugees': '<path d="M14 92l26-44 26 44z" fill="#e9c46a"/><path d="M40 48v44" stroke="#8a5a2b" stroke-width="3"/><path d="M34 92l6-14 6 14z" fill="#5b3a1c"/><path d="M58 92l24-38 24 38z" fill="#f4a261"/><path d="M76 92l6-12 6 12z" fill="#5b3a1c"/><path d="M8 96h104" stroke="#6b8f4e" stroke-width="5" stroke-linecap="round"/>',
     'neighbour-food': '<path d="M36 44q24-12 48 0l6 46q-30 12-60 0z" fill="#d9b26f"/><path d="M40 44q20-8 40 0" stroke="#8a6a3f" stroke-width="4" fill="none"/><path d="M60 30v-12M52 32l-6-10M68 32l6-10" stroke="#e9c046" stroke-width="4" stroke-linecap="round"/><text x="60" y="78" text-anchor="middle" font-size="16" font-weight="700" fill="#6b4b20">GRAIN</text>',
+    'cyclone': '<path d="M60 60m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0" fill="#dfe9f1"/><path d="M60 30c22 0 32 14 30 26M60 90c-22 0-32-14-30-26M30 50c2-14 16-22 30-20M90 70c-2 14-16 22-30 20" stroke="#9fc3dc" stroke-width="7" fill="none" stroke-linecap="round"/>',
+    'locusts': '<g fill="#7a8b2e">' + [[40, 40], [70, 34], [55, 60], [84, 62], [36, 74], [66, 84]].map(([x, y]) => '<ellipse cx="' + x + '" cy="' + y + '" rx="11" ry="4" transform="rotate(-20 ' + x + ' ' + y + ')"/><path d="M' + (x - 4) + ' ' + y + 'l-6 7M' + (x + 2) + ' ' + y + 'l4 8" stroke="#5b6a1f" stroke-width="2"/>').join('') + '</g><path d="M14 104h92" stroke="#c9a33a" stroke-width="5"/>',
+    'chemical-leak': '<rect x="30" y="28" width="40" height="54" rx="6" fill="#9aa1a8"/><path d="M38 40h24M38 50h24" stroke="#ffd23f" stroke-width="4"/><path d="M62 82c8 6 6 14 18 16s22-4 26 4" stroke="#7ad36b" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M8 100q16-6 32 0t32 0 40 0" stroke="#3f7fae" stroke-width="5" fill="none"/>',
+    'blackout': '<rect x="22" y="44" width="76" height="52" rx="4" fill="#2c3440"/><g fill="#11161d">' + [0, 1, 2, 3].map(k => '<rect x="' + (30 + k * 17) + '" y="54" width="10" height="12"/><rect x="' + (30 + k * 17) + '" y="74" width="10" height="12"/>').join('') + '</g><path d="M66 14L50 42h14l-8 24 22-32H64l8-20z" fill="#ffd23f"/><path d="M40 20l40 40" stroke="#ef5b4c" stroke-width="6" stroke-linecap="round"/>',
     'more-coal': '<path d="M20 96l20-34 18 18 14-24 28 40z" fill="#2c2a27"/><path d="M40 62l8 10M72 56l6 12" stroke="#55524c" stroke-width="4"/>',
   };
   return id => '<svg viewBox="0 0 120 120" width="150" height="150" aria-hidden="true">' + (A[id] || cloud + drops('#8fd0ff')) + '</svg>';
@@ -859,6 +928,11 @@ function showWhat(opt, y0) {
   $('whSub').textContent = T.years + ' years: year ' + y0 + ' to ' + S.year + (S.dead ? ' · the city died' : '');
   $('whStats').innerHTML = [['People', fmt(popStart) + ' → ' + fmt(popEnd), ch >= 0 ? '#62d36c' : '#ef5b4c'], ['Born', fmt(T.born), '#7cc7ff'], ['Died', fmt(totalDied), '#ff9c90'], ['Rain', Math.round(rainAvg * 100) + '% of normal', rainAvg < 0.7 ? '#f2a33a' : '#8fd0ff'], ['Money', money(T.moneyStart) + ' → ' + money(S.money), S.money >= T.moneyStart ? '#f5c544' : '#ef5b4c']]
     .map(([k, v, c]) => '<div><small>' + k + '</small><b class="num" style="color:' + c + '">' + v + '</b></div>').join('');
+  // the round's score so far, and how the age groups changed
+  const rr = E.eraReport(S, S.level, E.CAP_YEARS);
+  const ag = T.agesStart || [0, 0, 0];
+  $('whRound').innerHTML = '<div class="rscore"><small>Round ' + S.level + ' score</small><b class="num">' + rr.score.toFixed(0) + '</b><span>SDGs ' + rr.base.toFixed(0) + (rr.penLives ? ' · −' + rr.penLives.toFixed(0) + ' for preventable deaths' : '') + (rr.penMoney ? ' · −' + rr.penMoney.toFixed(0) + ' for losses and debt' : '') + ' · counts ' + Math.round(E.ERA_W[S.level] * 100) + '% of your final score</span></div>' +
+    '<div class="ages wh"><div><b class="num">' + fmt(ag[0]) + ' → ' + fmt(S.kids) + '</b><span>Children</span></div><div class="work"><b class="num">' + fmt(ag[1]) + ' → ' + fmt(S.adults) + '</b><span>Working age</span></div><div><b class="num">' + fmt(ag[2]) + ' → ' + fmt(S.elders) + '</b><span>Elderly</span></div></div>';
   $('whDeaths').innerHTML = died.length ? '<h4>Why people died</h4>' + died.map(([k, v]) => '<div class="why"><span>' + escapeHtml(W2.causes[k] || k) + '</span><div class="b"><i style="width:' + Math.round(v / totalDied * 100) + '%" class="c-' + k + '"></i></div><b class="num">' + fmt(v) + '</b></div>').join('') : '';
   const used = Object.entries(T.used || {}).filter(([, v]) => v > 0.5).map(([k, v]) => fmt(v) + ' ' + E.UNIT[k]);
   const evs = (T.events || []).map(e => '<li><b>' + escapeHtml(e.title) + '</b> — ' + escapeHtml(e.choice) + (e.outcome ? '<br><small>' + escapeHtml(e.outcome) + '</small>' : '') + '</li>').join('');
@@ -872,7 +946,7 @@ function showWhat(opt, y0) {
 /* =========================================================
    Result
    ========================================================= */
-const SDG_COL = { 17: '#19486A', 2: '#DDA63A', 3: '#4C9F38', 4: '#C5192D', 6: '#26BDE2', 7: '#FCC30B', 8: '#A21942', 9: '#FD6925', 11: '#FD9D24', 12: '#BF8B2E', 13: '#3F7E44', 15: '#56C02B' };
+const SDG_COL = { 1: '#E5243B', 17: '#19486A', 2: '#DDA63A', 3: '#4C9F38', 4: '#C5192D', 6: '#26BDE2', 7: '#FCC30B', 8: '#A21942', 9: '#FD6925', 11: '#FD9D24', 12: '#BF8B2E', 13: '#3F7E44', 15: '#56C02B' };
 async function showResult() {
   S.phase = 'done';
   const r = E.result(S, E.CAP_YEARS);
@@ -885,6 +959,7 @@ async function showResult() {
   $('resFate').className = 'fate ' + (r.alive ? 'ok' : 'dead');
   $('resFate').innerHTML = r.alive ? '<b>' + escapeHtml(en.thriving.title) + ' in year ' + r.years + '.</b> ' + escapeHtml(en.thriving.text) : '<b>' + escapeHtml(en.dead.title) + ' in year ' + r.years + '.</b> ' + escapeHtml((en.deathReasons && en.deathReasons[r.why]) || r.whyText || '') + ' ' + escapeHtml(en.dead.text);
   $('resStats').innerHTML = [['Years lasted', r.years + ' / ' + E.CAP_YEARS], ['Final population', fmt(r.pop)], ['Buildings', Object.keys(S.buildings).length]].map(([k, v]) => '<div><small>' + k + '</small><b class="num">' + v + '</b></div>').join('');
+  $('resRounds').innerHTML = r.rounds.map(x => '<div class="round' + (x.reached ? '' : ' off') + '"><small>Round ' + x.era + ' · ' + Math.round(x.weight * 100) + '%</small><b class="num">' + x.score.toFixed(0) + '</b><span>' + (x.reached ? 'SDGs ' + x.base.toFixed(0) + (x.penLives ? '<br>−' + x.penLives.toFixed(0) + ' preventable deaths' : '') + (x.penMoney ? '<br>−' + x.penMoney.toFixed(0) + ' losses &amp; debt' : '') : 'The city did not live to see it') + '</span></div>').join('');
   $('resSdgs').innerHTML = E.SDGS.map(x => '<div class="sdg"><div class="n" style="background:' + SDG_COL[x.n] + '">' + x.n + '</div><div><div>' + x.name + '</div><div class="b"><i style="width:' + r.sdg[x.key] + '%;background:' + SDG_COL[x.n] + '"></i></div></div><div class="num" style="text-align:right">' + Math.round(r.sdg[x.key]) + '</div></div>').join('');
   setView('result'); if (has3D) R3.orbit(true);
   $('resultScreen').hidden = false;

@@ -79,7 +79,7 @@ async def steps(pg, shot):
         await pg.click('#guideSkip')
         await pg.evaluate(PUT, [['foodFarm', 6], ['coalPlant', 1, 2], ['goldFactory', 1, 1], ['cashFarm', 1]])
         # pick the coal factory tool and hover a coal block to show the size/path picker
-        await pg.evaluate("""()=>{const t=window.__t,S=t.S;document.querySelector('[data-tab=industry]').click();
+        await pg.evaluate("""()=>{const t=window.__t,S=t.S;document.querySelector('[data-tab=energy]').click();
           setTimeout(()=>{document.querySelector('[data-type=coalPlant]').click();const i=S.tiles.findIndex(x=>x.t==='coal'&&!x.b&&t.E.inLevel(1,x.x,x.y));t.ui.size=2;t.setHover(i);},100)}""")
         await pg.wait_for_timeout(2500); await shot('1b-level1-factory-picker')
         await pg.evaluate("""()=>{const t=window.__t,S=t.S;t.ui.tool=null;const i=S.tiles.findIndex(x=>x.dep&&!x.b&&t.E.inLevel(1,x.x,x.y));t.clickTile(i);}""")

@@ -606,7 +606,7 @@ function buildWorld(st) {
   cars = [];
 
   // ---- per-game dynamic meshes reset ----
-  [roadsMesh, depMesh, uMesh, propsMesh, hiMesh, gridMesh, dashMesh].forEach(freeMesh);
+  [roadsMesh, depMesh, uMesh, propsMesh, hiMesh, gridMesh, dashMesh, marksMesh].forEach(freeMesh); marksMesh = null;
   roadsMesh = depMesh = uMesh = propsMesh = hiMesh = gridMesh = dashMesh = null;
   bmap.forEach(e => freeEntry(e)); bmap.clear();
   sig = { roads: '', dep: '', props: '', river: '', lights: '' };
@@ -817,6 +817,19 @@ function setHighlight(tilesA, colA, tilesB, colB) {
   (tilesA || []).forEach(i => q(i, colA)); (tilesB || []).forEach(i => q(i, colB));
   if (!g.p.length) return;
   hiMesh = addMesh(g, { mode: 3, flat: 1, cast: false, blend: true, alpha: 0.55, depthWrite: false, order: 4 });
+}
+let marksMesh = null;
+// red boxes on every block a chosen plant or mine can go on
+function setMarks(tiles) {
+  freeMesh(marksMesh); marksMesh = null;
+  if (!S || !tiles || !tiles.length) return;
+  const g = new Geo(), red = '#ff2d1f', T = 0.07, Hh = 0.16;
+  for (const i of tiles) {
+    const t = S.tiles[i], x = tw(t.x), z = tw(t.y), a = 0.44;
+    box(g, red, x, 0.02, z - a, 0.95, Hh, T); box(g, red, x, 0.02, z + a, 0.95, Hh, T);
+    box(g, red, x - a, 0.02, z, T, Hh, 0.95); box(g, red, x + a, 0.02, z, T, Hh, 0.95);
+  }
+  marksMesh = addMesh(g, { mode: 3, flat: 1, cast: false, blend: true, alpha: 0.9, depthWrite: false, order: 7 });
 }
 let hoverState = { i: -1, tool: null, ok: false, fp: [] }, selId = null;
 function updateHover() {
@@ -1083,7 +1096,7 @@ const R3 = {
     R3.lost = false; R3._tgt = null;
     scene.meshes = []; scene.sprites = []; scene.shadowDirty = true;
     world = {}; bmap = new Map(); ghost = null; ghostKey = ''; particles.length = 0;
-    roadsMesh = depMesh = uMesh = propsMesh = hiMesh = gridMesh = dashMesh = null;
+    roadsMesh = depMesh = uMesh = propsMesh = hiMesh = gridMesh = dashMesh = marksMesh = null;
     labels.forEach(l => l.el.remove()); labels.clear();
     if (S) { const st = S; R3.load(st); R3.setLevel(curLevel || st.level, true); R3.resize(); }
   },
@@ -1094,6 +1107,7 @@ const R3 = {
     cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
   },
   setInsets(o) { insets = o; },
+  marks(tiles) { setMarks(tiles); },
   river() { return { waste: riverState.waste, left: riverState.left }; },
   // time of day
   dayInfo() { const D = dayNow(performance.now()); const h = Math.floor(D.h), m = Math.floor((D.h - h) * 60); return { h: D.h, text: String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'), label: dayLabel(D.h), night: D.h < 5 || D.h >= 19 }; },

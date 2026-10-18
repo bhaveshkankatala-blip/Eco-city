@@ -24,14 +24,15 @@ window.ECO_CONTENT = {
     idle: ['Quiet day on the island', 'Chai, cricket and gossip on Neem Street', 'Council meets, nothing decided', 'Monsoon forecast: normal, for now', 'The island waits to see what you build'],
   },
   tutorial: [
-    { title: 'Pick a building', text: 'Everything you can build is in the bar at the bottom. Start with Food Crops: 1,000 people are hungry.', target: 'build-bar' },
+    { title: 'Pick a building', text: 'Everything you can build is in the bar at the bottom, grouped by what it does. Hover a card to read it in full. Start with Food Crops: farms are free in Level 1, everything else comes out of your ₹35 L budget.', target: 'build-bar' },
     { title: 'Place it on the land', text: 'Click any green block inside the yellow border. A see-through preview shows where it will go.', target: 'map' },
-    { title: 'Factories on resources', text: 'Coal, gold and uranium sit in scattered blocks. A factory can cover 1–3 of them: pick the size, and the shape with "Next path".', target: 'build-bar' },
+    { title: 'Plants and mines on resources', text: 'Pick a coal plant or a mine and its blocks are marked in red. Choose how many blocks it covers, and the shape with "Next path". Every card says how many workers it needs.', target: 'build-bar' },
     { title: 'Read your city, then finish', text: 'The numbers on the left are this year\'s reality. When you are ready, press Finish. After this, the game will not tell you what to build.', target: 'finish' },
   ],
   sdg: {
-    intro: 'Your score is the average of these 12 UN Sustainable Development Goals, measured every year your city lives. A city that feeds, houses, heals and employs its people for centuries, without poisoning its air or using up its land, scores highest.',
+    intro: 'Your city is scored on these 13 UN Sustainable Development Goals in three rounds: after Level 1 (30%), after Level 2 (35%) and after Level 3 (35%). Each round also loses points for deaths a better city would have prevented and for losing money. A city that feeds, houses, heals and employs its people for centuries, without poisoning its air or using up its land, scores highest.',
     goals: [
+      { n: 1, name: 'No Poverty', what: 'Nobody lives in poverty.', inGame: 'Jobs for everyone who can work, a city that earns more than it spends, and no debt.' },
       { n: 2, name: 'Zero Hunger', what: 'Everyone has enough to eat, every year.', inGame: 'Food grown (plus stored) compared with what your people eat.' },
       { n: 3, name: 'Good Health', what: 'People live long, healthy lives.', inGame: 'Hospital care, clean air and how many people die each year.' },
       { n: 4, name: 'Quality Education', what: 'Every child gets a good education.', inGame: 'How many of your people your schools can teach.' },

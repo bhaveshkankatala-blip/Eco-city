@@ -251,13 +251,13 @@ body { background: #9cc9e6; }
 #app[data-view=result] #stats, #app[data-view=result] #right, #app[data-view=result] #build, #app[data-view=result] #mapCtl, #app[data-view=result] #top { display: none; }
 #resultScreen { background: rgba(5, 13, 19, .45); }
 @media (max-height: 800px) {
-  .card { height: 132px; width: 116px; }
-  .card img.thumb, .card .thumb { width: 88px; height: 64px; }
+  .card { height: 142px; width: 124px; }
+  .card img.thumb, .card .thumb { width: 76px; height: 54px; }
   .card .ch { font-size: 10px; }
   #mapCtl { bottom: 192px; }
   #stats { max-height: calc(100% - 108px - 200px); }
   #right { max-height: calc(100% - 108px - 246px); }
-  .stat .note { display: none; }
+  .stat .note { font-size: 10.5px; }
   .stat .tank { display: flex; }
   .stat { padding: 4px 0; }
   .brandBig h1 { font-size: 48px; }
@@ -417,6 +417,34 @@ body { background: #9cc9e6; }
 .evout b { font-family: var(--f-display); font-size: 17px; }
 .evout p { margin: 0; color: #d6e6e3; }
 .evout .btn { justify-self: end; }
+/* v5: ages, card info, mode bar, minimap marks, rounds */
+.ages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 2px 0 6px; }
+.ages div { background: rgba(255,255,255,.05); border-radius: 8px; padding: 5px 6px; display: grid; }
+.ages div.work { background: rgba(124,199,255,.12); }
+.ages b { font-family: var(--f-display); font-size: 15px; }
+.ages span { font-size: 10px; color: var(--muted); line-height: 1.25; }
+.ages.wh { margin: 10px 0; } .ages.wh b { font-size: 16px; }
+.card .ch .wk { color: #b48cf2; font-weight: 600; }
+#cardInfo { position: absolute; left: 12px; right: 12px; bottom: 206px; z-index: 4; pointer-events: none; padding: 8px 12px; font-size: 12.5px; line-height: 1.45; color: #d6e6e3; }
+#cardInfo b { font-family: var(--f-display); font-size: 14px; color: var(--text); margin-right: 6px; }
+#cardInfo .pr { color: var(--sun); font-weight: 600; margin-right: 6px; }
+#cardInfo .lk { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: #0b1a24; color: var(--muted); margin-right: 6px; }
+#cardInfo .facts { color: var(--muted); }
+#modeBar { position: absolute; top: 112px; left: 50%; transform: translateX(-50%); z-index: 6; max-width: min(720px, calc(100% - 600px)); padding: 8px 14px; border-radius: 10px; background: rgba(245,197,68,.95); color: #2b2100; font-size: 13px; text-align: center; box-shadow: 0 8px 20px rgba(0,0,0,.3); }
+#modeBar b { font-family: var(--f-display); margin-right: 4px; }
+#modeBar kbd { font: inherit; font-weight: 700; padding: 0 5px; border-radius: 4px; background: rgba(0,0,0,.12); }
+@media (max-width: 1180px) { #modeBar { max-width: calc(100% - 40px); top: 100px; } }
+.legend .mmwarn { width: 12px; height: 12px; border-radius: 50%; background: #ff4d3d; color: #fff; font-style: normal; font-size: 9px; font-weight: 700; display: grid; place-items: center; }
+.legend .mmwarn.used { background: #f2a33a; }
+.rounds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.round { background: var(--raise); border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; }
+.round small { color: var(--muted); font-size: 11px; }
+.round b { font-family: var(--f-display); font-size: 24px; }
+.round span { font-size: 11.5px; color: #cfe2df; line-height: 1.35; }
+.round.off { opacity: .5; }
+.rscore { display: grid; grid-template-columns: auto auto 1fr; gap: 4px 12px; align-items: baseline; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--raise); }
+.rscore b { font-family: var(--f-display); font-size: 28px; }
+.rscore span { font-size: 12px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
@@ -465,6 +493,8 @@ body { background: #9cc9e6; }
 
   <div id="guide" class="panel" hidden><div class="gn" id="guideN"></div><h3 id="guideT"></h3><p id="guideX"></p><div class="row2"><button class="btn ghost" id="guideSkip">Skip guide</button><button class="btn primary" id="guideNext">Next</button></div></div>
 
+  <div id="modeBar" hidden></div>
+  <div id="cardInfo" class="panel" hidden></div>
   <section id="build">
     <div id="tabs" role="tablist"></div>
     <div id="cards" class="panel"></div>
@@ -486,11 +516,11 @@ body { background: #9cc9e6; }
         <div class="grid2 tight"><div class="field"><label for="teamRoll">Team lead roll number</label><input id="teamRoll" maxlength="20" autocomplete="off" placeholder="e.g. 23CSB0A12"></div>
         <div class="field"><label for="teamPhone">Phone number</label><input id="teamPhone" maxlength="14" inputmode="numeric" autocomplete="off" placeholder="10 digits"></div></div>
         <p class="lead" id="startErr" hidden style="color:#ff9c90;margin:0 0 8px"></p>
-        <div class="row2"><button class="btn primary big" type="submit" id="startGo">Start Level 1</button><button class="btn big ghost" type="button" id="startRules">How to play</button><button class="btn big ghost" type="button" id="startSdg">The 12 goals</button></div>
+        <div class="row2"><button class="btn primary big" type="submit" id="startGo">Start Level 1</button><button class="btn big ghost" type="button" id="startRules">How to play</button><button class="btn big ghost" type="button" id="startSdg">The 13 goals</button></div>
       </form>
       <div id="resumeBox" hidden style="margin-top:12px"></div>
       <ol class="levels3">
-        <li><b>Foundations</b><span><span id="l1t">15 min</span> · Free to build. Plan for the children who will be born, not just today's 1,000.</span></li>
+        <li><b>Foundations</b><span><span id="l1t">15 min</span> · A ₹35 L budget; farms are free up to a limit. Plan for the children who will be born, not just today's 1,000.</span></li>
         <li><b>Grow</b><span><span id="l2t">8 min</span> · Bigger land, real money, upgrades. Then 50 years pass, with a decision every 10.</span></li>
         <li><b>Build to last</b><span><span id="l3t">8 min</span> · Hospitals and the future. Then your city runs alone to year 500.</span></li>
       </ol>
@@ -503,11 +533,11 @@ body { background: #9cc9e6; }
       <h2>How to play</h2>
       <div class="rules">
         <h3>The goal</h3>
-        <p>1,000 people live on your island: 300 children, 600 adults and 100 elderly. Build a city that keeps them, and their children's children, fed and safe until year 500. Your score is the average of 12 UN goals across every year your city lives.</p>
+        <p>1,000 people live on your island: 300 children, 600 adults and 100 elderly. Build a city that keeps them, and their children's children, fed and safe until year 500. Your city is scored on 13 UN goals in three rounds: the years after Level 1 (30% of your score), after Level 2 (35%) and after Level 3 (35%). Each round loses points for deaths a better city would have prevented (hunger, thirst, joblessness, slums) and for losing money or going into debt.</p>
         <h3>Building</h3>
-        <ul><li>Pick a building from the bar at the bottom, then click a block on the map.</li><li>Coal, gold, uranium and mineral blocks are scattered. Click one to see how much is in it. A factory covers 1 or more connected blocks: choose the size and press <b>Next path</b> (or R) to change the shape.</li><li>Farms and other buildings may use spare resource blocks, but to mine there later you must demolish them first.</li><li>Level 1 is free. From Level 2 you pay with the money your city earned, and can upgrade factories (one more block) and homes (rooftop solar, rainwater harvesting).</li></ul>
+        <ul><li>Pick a building from the bar at the bottom, then click a block on the map.</li><li>Coal, gold, uranium and mineral blocks are scattered. Click one to see how much is in it. A factory covers 1 or more connected blocks: choose the size and press <b>Next path</b> (or R) to change the shape.</li><li>Farms and other buildings may use spare resource blocks, but to mine there later you must demolish them first.</li><li>Level 1 gives you a ₹35 L budget. Food and cash farms are free (up to 10 and 3); one coal plant of at most 2 blocks. From Level 2 you pay with what your city earned, and can upgrade factories (one more block) and homes (rooftop solar, rainwater harvesting).</li><li>Choose <b>Inspect &amp; demolish → Inspect</b> and click any building to see its workers, output and upgrades.</li></ul>
         <h3>People</h3>
-        <p>Adults work; children eat but do not work; the elderly need care. Couples have 2 to 4 children: more when food and water are plentiful, fewer as schools and hospitals spread. People die of old age, and many more die of hunger, thirst, poverty (no work), slums (no homes) and polluted air. Hospitals help. Nobody moves to the island.</p>
+        <p>Adults work; children eat but do not work; the elderly need care. Couples have 2 to 4 children whether or not there is food for them: fewer as schools and hospitals spread. If there is not enough food, people starve. People die of old age, and many more die of hunger, thirst, poverty (no work), slums (no homes) and polluted air. Hospitals help. Nobody moves to the island.</p>
         <h3>Rain</h3>
         <p>Rain comes from your city: forests and empty land bring it, pollution drives it away. Farms, dams and rivers depend on it.</p>
         <h3>Time</h3>
@@ -519,7 +549,7 @@ body { background: #9cc9e6; }
         <h3>Reading your city</h3>
         <p>The numbers on the left are this year's reality. A number turns red only when something is failing right now. The Island Times reports what people are saying. Nobody will tell you what to build.</p>
       </div>
-      <div class="row2" style="justify-content:flex-end"><button class="btn" id="rulesSdg">The 12 goals</button><button class="btn primary" id="rulesClose">Got it</button></div>
+      <div class="row2" style="justify-content:flex-end"><button class="btn" id="rulesSdg">The 13 goals</button><button class="btn primary" id="rulesClose">Got it</button></div>
     </div>
   </div>
 
@@ -580,6 +610,7 @@ body { background: #9cc9e6; }
       <h2 id="whTitle"></h2>
       <p class="lead" id="whSub"></p>
       <div class="tstats wh" id="whStats"></div>
+      <div id="whRound"></div>
       <div id="whDeaths"></div>
       <div id="whMore"></div>
       <div class="row2" style="justify-content:flex-end"><button class="btn primary big" id="whNext">Continue</button></div>
@@ -588,7 +619,7 @@ body { background: #9cc9e6; }
 
   <div class="overlay" id="sdgScreen" hidden>
     <div class="sheet" style="width:min(980px,100%)">
-      <h2>The 12 goals your city is scored on</h2>
+      <h2>The 13 goals your city is scored on</h2>
       <p class="lead" id="sdgIntro"></p>
       <div class="sdggrid" id="sdgGrid"></div>
       <div class="row2" style="justify-content:flex-end"><button class="btn primary" id="sdgClose">Close</button></div>
@@ -606,7 +637,9 @@ body { background: #9cc9e6; }
           <div class="tstats" id="resStats" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div>
         </div>
       </div>
-      <h3 style="font-size:16px;margin:6px 0 10px">SDG breakdown</h3>
+      <h3 style="font-size:16px;margin:6px 0 10px">Your three rounds</h3>
+      <div class="rounds" id="resRounds"></div>
+      <h3 style="font-size:16px;margin:14px 0 10px">SDG breakdown</h3>
       <div class="sdgs" id="resSdgs"></div>
       <p class="lead" id="resSaved" style="margin-top:14px"></p>
       <div class="row2" style="justify-content:flex-end"><button class="btn big" id="resFb" hidden>Give feedback</button><button class="btn primary big" id="resDone">Finish and hand over</button></div>

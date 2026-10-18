@@ -14,7 +14,7 @@
   const BASE = {
     hut:        { name: 'Village Homes', cat: 'housing', lvl: 99, cost: 0, cap: 20, maint: 0.5, pol: 0.2, energy: 1,
                   desc: 'The original village. Houses 200 people.' },
-    house:      { name: 'Individual Houses', cat: 'housing', lvl: 2, cost: 30, cap: 20, maint: 0.6, pol: 0.2, energy: 1,
+    house:      { name: 'Individual Houses', cat: 'housing', lvl: 1, cost: 30, cap: 20, maint: 0.6, pol: 0.2, energy: 1,
                   desc: 'Low density: 200 people per block. Cheap, but uses a lot of land.' },
     community:  { name: 'Community Housing', cat: 'housing', lvl: 2, cost: 70, cap: 45, maint: 1.5, pol: 0.4, energy: 2,
                   desc: 'Row houses with shared spaces: 450 people per block.' },
@@ -26,11 +26,11 @@
     cashFarm:   { name: 'Cash Crops', cat: 'agri', lvl: 1, cost: 25, wB: 10, wR: 45, min: 4, max: 8, energy: 1, econ: 20, pol: 1, maint: 1,
                   desc: 'Cotton, sugarcane, spices. Earns money but feeds no one, and is thirsty.' },
 
-    coalPlant:  { name: 'Coal Factory', cat: 'industry', lvl: 1, on: 'coal', perBlock: true, maxBlocks: 3, cost: 45, upCost: 30, wB: 20, wR: 17, min: 4, max: 8, gen: 40, econ: 12, pol: 7.5, maint: 1.7, use: 20,
+    coalPlant:  { name: 'Coal Power Plant', cat: 'energy', lvl: 1, on: 'coal', perBlock: true, maxBlocks: 3, cost: 45, upCost: 30, wB: 20, wR: 17, min: 4, max: 8, gen: 40, econ: 12, pol: 7.5, maint: 1.7, use: 20,
                   desc: 'Mines coal and burns it for power. Covers 1–3 coal blocks; each block runs out.' },
     goldFactory:{ name: 'Gold Factory', cat: 'industry', lvl: 1, on: 'gold', perBlock: true, maxBlocks: 2, cost: 90, upCost: 55, wB: 30, wR: 40, min: 8, max: 15, energy: 15, econ: 65, pol: 8, maint: 4, use: 15,
                   desc: 'Mines and refines gold. Big income. Covers 1–2 gold blocks; gold runs out.' },
-    nuclear:    { name: 'Nuclear Power Plant', cat: 'industry', lvl: 1, on: 'uranium', perBlock: true, maxBlocks: 4, cost: 100, upCost: 60, wB: 40, wR: 30, min: 5, max: 9, gen: 75, econ: 6, pol: 0.8, maint: 3, use: 1,
+    nuclear:    { name: 'Nuclear Power Plant', cat: 'energy', lvl: 1, on: 'uranium', perBlock: true, maxBlocks: 4, cost: 100, upCost: 60, wB: 40, wR: 30, min: 5, max: 9, gen: 75, econ: 6, pol: 0.8, maint: 3, use: 1,
                   desc: 'Huge, fairly clean power that lasts centuries, but very thirsty. Covers 1–4 uranium blocks.' },
     mineralMine:{ name: 'Natural Resource Mine', cat: 'industry', lvl: 1, on: 'mineral', perBlock: true, maxBlocks: 2, cost: 60, upCost: 35, wB: 20, wR: 20, min: 6, max: 12, energy: 8, econ: 32, pol: 6, maint: 3, use: 1.5,
                   desc: 'Stone, iron and sand for building. Steady income. Covers 1–2 blocks; runs out slowly.' },
@@ -49,9 +49,9 @@
     solar:      { name: 'Solar Panels', cat: 'energy', lvl: 2, cost: 50, min: 1, max: 2, gen: 30, maint: 1.5, renew: true,
                   desc: 'Clean energy. Output varies with sunlight unless you add storage.' },
 
-    hospital:   { name: 'Hospital', cat: 'services', lvl: 3, cost: 150, min: 10, max: 20, energy: 10, health: 250, maint: 8,
+    hospital:   { name: 'Hospital', cat: 'services', lvl: 2, cost: 150, min: 10, max: 20, energy: 10, health: 250, maint: 8,
                   desc: 'Cares for 2,500 people. Fewer deaths, longer lives, smaller families.' },
-    granary:    { name: 'Food Storage', cat: 'services', lvl: 3, cost: 80, min: 2, max: 4, energy: 2, foodCap: 300, maint: 2,
+    granary:    { name: 'Food Storage', cat: 'agri', lvl: 2, cost: 80, min: 2, max: 4, energy: 2, foodCap: 300, maint: 2,
                   desc: 'Stores 3,000 food from good years for bad ones.' },
     battery:    { name: 'Energy Storage', cat: 'energy', lvl: 3, cost: 100, min: 1, max: 2, firmFor: 4, maint: 3,
                   desc: 'Battery bank. Makes up to 4 solar or wind blocks give full, steady power.' },
@@ -80,6 +80,7 @@
   const UNIT = { coal: 'kt coal', gold: 't gold', uranium: 't uranium', mineral: 'kt stone & ore' };
 
   const SDGS = [
+    { n: 1, key: 'poverty', name: 'No Poverty' },
     { n: 2, key: 'hunger', name: 'Zero Hunger' },
     { n: 3, key: 'health', name: 'Good Health' },
     { n: 4, key: 'edu', name: 'Quality Education' },
@@ -96,12 +97,18 @@
 
   const WORLD = 15;
   const LEVELS = {
-    1: { size: 10, off: 2, title: 'Foundations', sub: 'A village of 1,000 people. Building is free, but land, workers and water are not. Plan for the children who are coming.' },
+    1: { size: 10, off: 2, title: 'Foundations', sub: 'A village of 1,000 people and a ₹35 L budget. Farms are free (up to a limit); everything else costs money. Plan for the children who are coming.' },
     2: { size: 12, off: 1, title: 'Grow the City', sub: 'Spend what your city earned. Homes, clean energy, roads, schools, upgrades. The land has grown 1.5×.' },
-    3: { size: 15, off: 0, title: 'Plan for the Future', sub: 'The children of Level 1 are adults now. Storage, hospitals, jobs and pollution control decide the next centuries.' },
+    3: { size: 15, off: 0, title: 'Plan for the Future', sub: 'The children of Level 1 are adults now. Jobs, clean industry, forests and pollution control decide the next centuries.' },
   };
   // checkpoint pauses, in years from the start of each jump
-  const PAUSES = { jump2: [10, 20, 30, 40], final: [20, 60, 120, 200, 300] };
+  const PAUSES = { jump2: [7, 14, 21, 28, 35, 43], final: [20, 60, 110, 170, 240, 320] };
+  // Level 1: a fixed budget; farms are free but capped; one small coal plant at most
+  const L1_BUDGET = 3500;                       // ₹35 L
+  const L1_CAPS = { foodFarm: { n: 10 }, cashFarm: { n: 3 }, coalPlant: { n: 1, blocks: 2 }, nuclear: { n: 1, blocks: 2 }, goldFactory: { n: 1 }, mineralMine: { n: 1 } };
+  const L1_FREE = { foodFarm: true, cashFarm: true };
+  // score weights for the three rounds (what teams built in Level 1, 2 and 3)
+  const ERA_W = { 1: 0.3, 2: 0.35, 3: 0.35 };
   const CAP_YEARS = 500;
 
   // ---------- RNG ----------
@@ -140,8 +147,7 @@
       choices: [
         { label: 'Open cooling centres', detail: 'Air-cooled halls for the elderly. Costs money and power.', effects: { money: -300, energyPct10y: -10, deathsPct10y: -10 }, news: 'Cooling halls packed with grandparents and card games' },
         { label: 'Shut factories in the afternoon', detail: 'Less heat and smoke in the hottest hours. Less income for years.', effects: { incomePct10y: -20, deathsPct10y: -8 }, news: 'Sirens at noon: factories shut for the hottest hours' },
-        { label: 'Keep the factories running', idle: true, detail: 'No cost now. Every running factory adds heat and smoke to the streets.', effects: { deathsPct10y: 10, pollution: 5 }, later: [{ key: 'deathsPct10y', pct: 5, years: 15 }], factoryHeat: true, flag: 'heatFactories', news: 'Chimneys smoke on through the heatwave' },
-        ASK ] },
+        { label: 'Keep the factories running', idle: true, detail: 'No cost now. Every running factory adds heat and smoke to the streets.', effects: { deathsPct10y: 10, pollution: 5 }, later: [{ key: 'deathsPct10y', pct: 5, years: 15 }], factoryHeat: true, flag: 'heatFactories', news: 'Chimneys smoke on through the heatwave' } ] },
     'disease-outbreak': { title: 'Disease outbreak', text: 'A fever is spreading fastest through the crowded lanes. Hospitals are filling up.',
       impact: { deathsPct10y: 30 }, impactYears: 3, help: { deathsPct10y: -20 }, helpText: 'doctors and medicine',
       choices: [
@@ -154,13 +160,38 @@
       choices: [
         { label: 'Keep mines running', idle: true, detail: 'Keep every job. Income stays low for years.', effects: {}, news: 'Mines keep digging, for less and less' },
         { label: 'Retrain workers', detail: 'Pay to retrain miners for other work. Costs money, income recovers.', effects: { money: -350, incomePct10y: 15 }, news: 'Miners back in classrooms, learning new trades' },
-        { label: 'Sell coal reserves', detail: 'Sell coal rights cheap for quick cash. Pollution from the buyers drifts in.', effects: { money: 400, pollution: 6 }, flag: 'coalDependent', news: 'Coal trucks roll out of town at bargain prices' },
-        ASK ] },
+        { label: 'Sell coal reserves', detail: 'Sell coal rights cheap for quick cash. Pollution from the buyers drifts in.', effects: { money: 400, pollution: 6 }, flag: 'coalDependent', news: 'Coal trucks roll out of town at bargain prices' } ] },
     'flood': { title: 'Flash flood', text: 'A cloudburst upstream. The river has burst its banks and fields are under water.',
       impact: { foodPct10y: -15 }, impactYears: 3, help: { food: 1500, money: 200 }, helpText: 'volunteers and grain',
       choices: [
         { label: 'Rebuild fast', detail: 'Emergency repairs. Costs money, food recovers quickly.', effects: { money: -300, foodPct10y: 12 }, news: 'Sandbags and shovels: the city digs out' },
         { label: 'Let fields recover', idle: true, detail: 'No spending. Harvests are poor for years.', effects: { foodPct10y: -10 }, news: 'Silt-covered fields lie empty' },
+        ASK ] },
+    // more crises (one or two per team, random)
+    'cyclone': { title: 'Cyclone', text: 'A cyclone is two days away. Winds of 180 km/h will tear through fields, roofs and power lines.',
+      impact: { foodPct10y: -20, deathsPct10y: 12, money: -200 }, impactYears: 3, help: { money: 400, food: 1500 }, helpText: 'rescue teams, tarpaulins and grain',
+      choices: [
+        { label: 'Evacuate everyone', detail: 'Buses and shelters for the whole city. Expensive, saves lives.', effects: { money: -300, deathsPct10y: -10 }, news: 'Long lines of buses head inland' },
+        { label: 'Shelter in place', idle: true, detail: 'No cost now. People ride it out at home.', effects: {}, news: 'Doors boarded up across the city' },
+        ASK ] },
+    'locusts': { title: 'Locust swarm', text: 'A swarm of locusts the size of a city is eating its way across the fields.',
+      impact: { foodPct10y: -35 }, impactYears: 2, help: { food: 2500 }, helpText: 'grain from their stores',
+      choices: [
+        { label: 'Spray pesticides', detail: 'Kills the swarm fast. The poison runs into the river and the soil.', effects: { money: -150, foodPct10y: 20, pollution: 6 }, later: [{ key: 'deathsPct10y', pct: 4, years: 15 }], flag: 'pesticides', news: 'Crop dusters spray the fields white' },
+        { label: 'Nets, traps and birds', detail: 'Slower and more expensive, but nothing is poisoned.', effects: { money: -300, foodPct10y: 12 }, news: 'Villagers drive the swarm into nets at dawn' },
+        { label: 'Let it pass', idle: true, detail: 'No cost now. The harvest is lost.', effects: {}, news: 'Bare stalks where the wheat stood' },
+        ASK ] },
+    'chemical-leak': { title: 'Chemical leak', text: 'A factory tank has burst. Toxic waste is pouring into the river that the city drinks from.',
+      impact: { deathsPct10y: 15, water: -2000 }, impactYears: 3,
+      choices: [
+        { label: 'Shut it down and clean up', detail: 'Close the factory for months and pay for the clean-up.', effects: { money: -350, incomePct10y: -10, deathsPct10y: -12 }, news: 'Clean-up crews in white suits line the riverbank' },
+        { label: 'Fine the company', detail: 'They pay the city. The waste stays in the river for a while.', effects: { money: 200, pollution: 4 }, news: 'Factory fined; the river stays brown' },
+        { label: 'Keep it quiet', idle: true, detail: 'No cost now. People drink the water and nobody knows why they fall ill.', effects: {}, later: [{ key: 'deathsPct10y', pct: 6, years: 15 }], flag: 'coverUp', news: 'Officials say the water is fine' } ] },
+    'blackout': { title: 'The grid fails', text: 'On the hottest night of the year the power grid collapses. Hospitals, pumps and factories go dark.',
+      impact: { incomePct10y: -20, deathsPct10y: 6 }, impactYears: 2, help: { incomePct10y: 15 }, helpText: 'power from their grid',
+      choices: [
+        { label: 'Rolling power cuts', idle: true, detail: 'Share the little power there is. Factories lose hours.', effects: { incomePct10y: -10 }, news: 'Four hours of power a day, by turns' },
+        { label: 'Diesel generators', detail: 'Hire generators for every ward. Costs money and fills the air with smoke.', effects: { money: -250, pollution: 6 }, news: 'Generators roar on every street corner' },
         ASK ] },
     // neighbours in trouble: help now, or keep what you have
     'neighbour-water': { title: 'Neighbour needs water', text: 'A drought has hit the town downstream. Their wells are dry and they ask to share your reservoir.', neighbour: true,
@@ -212,8 +243,9 @@
         { label: 'Mine it', detail: '+1,000 kt coal for your coal blocks. The city leans harder on coal.', effects: { coalTonnes: 1000, pollution: 4 }, flag: 'coalDependent', news: 'Coal rush: the mines hire again' },
         { label: 'Leave it underground', detail: 'Keep the air clean.', effects: {}, news: 'Coal seam sealed and left alone' } ] },
   };
-  const OTHERS = Object.keys(EVENTS).filter(k => !SHOCKS.includes(k) && !NEIGHBOUR.includes(k) && k !== 'flood');
-  const FLAG_TEXT = { groundwater: 'you pumped the groundwater', heatFactories: 'you kept the factories running through the heatwave', forestCut: 'the hill forest was lost', coalDependent: 'you bet on coal', unsafeFactories: 'you refused the factory workers' };
+  const NEWC = ['cyclone', 'locusts', 'chemical-leak', 'blackout'];
+  const OTHERS = Object.keys(EVENTS).filter(k => !SHOCKS.includes(k) && !NEIGHBOUR.includes(k) && !NEWC.includes(k) && k !== 'flood');
+  const FLAG_TEXT = { pesticides: 'you sprayed pesticides on the fields', coverUp: 'you kept the chemical leak quiet', groundwater: 'you pumped the groundwater', heatFactories: 'you kept the factories running through the heatwave', forestCut: 'the hill forest was lost', coalDependent: 'you bet on coal', unsafeFactories: 'you refused the factory workers' };
   const flagNote = (state, k) => { const y = state.flags && state.flags[k]; return y != null ? 'In year ' + y + ' ' + FLAG_TEXT[k] + '. ' : ''; };
   const runningFactories = state => Object.values(state.buildings).filter(b => ['coalPlant', 'goldFactory', 'mineralMine', 'itPark'].includes(b.type) && b._eff > 0).reduce((a, b) => a + (B[b.type].perBlock ? b.tiles.length : 1), 0);
   // How hard a crisis hits this city, and the reasons, shown on the event screen.
@@ -236,6 +268,8 @@
       if ((f.riverDirty || 0) > 0.2) notes.push('Untreated factory waste is in the river people drink from.');
       if (f.healthCov > 0.5) notes.push('Your hospitals are ready.'); else notes.push('There are not enough hospital beds.');
       if (state.flags.heatFactories != null) { m += 0.3; notes.push(flagNote(state, 'heatFactories') + 'Many people never recovered.'); }
+      if (state.flags.pesticides != null) { m += 0.2; notes.push(flagNote(state, 'pesticides') + 'The poison is still in the water.'); }
+      if (state.flags.coverUp != null) { m += 0.2; notes.push(flagNote(state, 'coverUp') + 'People still drink that water.'); }
     } else if (id === 'monsoon-failure') {
       m += 0.6 * (0.3 - f.green);
       if (f.green < 0.2) notes.push('With so little forest and open land, the clouds pass you by.');
@@ -244,6 +278,29 @@
       const dams = Object.values(state.buildings).filter(b => b.type === 'dam' && b._eff > 0).length;
       if (dams) { m -= 0.3 * dams; notes.push('Your dam holds back part of the flood.'); }
       if (state.flags.forestCut != null) { m += 0.6; notes.push(flagNote(state, 'forestCut') + 'With no trees on the hills, the water rushes straight down.'); }
+    } else if (id === 'cyclone') {
+      m += 0.3 - Math.min(0.5, f.forestShare * 4) - 0.3 * f.healthCov;
+      if (f.forestShare < 0.04) notes.push('Few trees to break the wind.'); else notes.push('Your forests break the worst of the wind.');
+      if (f.healthCov > 0.5) notes.push('Your hospitals can treat the injured.');
+      const slums = Math.max(0, f.pop - f.cap) / Math.max(1, f.pop);
+      if (slums > 0.03) { m += slums * 2; notes.push('People in slum shacks have no safe roof.'); }
+    } else if (id === 'locusts') {
+      const farms = Object.values(state.buildings).filter(b => b.type === 'foodFarm' || b.type === 'cashFarm');
+      const cash = farms.filter(b => b.type === 'cashFarm').length / Math.max(1, farms.length);
+      m += cash * 0.6 - (state.foodStore > f.foodDemand * 0.5 ? 0.3 : 0) - Math.min(0.3, f.forestShare * 3);
+      if (cash > 0.3) notes.push(Math.round(cash * 100) + '% of your farms grow one cash crop: easy feeding for the swarm.');
+      if (state.foodStore > f.foodDemand * 0.5) notes.push('Your stored food will carry people through.'); else notes.push('You have little food in storage.');
+    } else if (id === 'chemical-leak') {
+      const fac = runningFactories(state);
+      m += 0.05 * fac + 0.8 * (f.riverDirty || 0) - 0.4;
+      notes.push(fac + ' running factory blocks along your river.');
+      if ((f.riverDirty || 0) > 0.2) notes.push('Your treatment plants cannot keep up with the waste.'); else notes.push('Your treatment plants clean most of the water.');
+      if (state.flags.coverUp != null) { m += 0.3; notes.push(flagNote(state, 'coverUp') + 'Nobody believes the officials now.'); }
+    } else if (id === 'blackout') {
+      const firm = Object.values(state.buildings).some(b => (b.type === 'battery' || b.type === 'dam') && b._eff > 0);
+      m += (f.energyR < 1 ? 0.5 : 0) - (firm ? 0.35 : 0) - Math.min(0.3, f.cleanShare * 0.3);
+      if (f.energyR < 1) notes.push('Your city already uses more power than it makes.');
+      if (firm) notes.push('Your batteries and dam keep some lights on.'); else notes.push('You have no storage or dam to fall back on.');
     } else if (id === 'fuel-price-crash') {
       const ext = f.econ ? f.econExtract / f.econ : 0;
       m += ext - 0.4;
@@ -328,13 +385,16 @@
     const shuf = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
     const sh = shuf(SHOCKS), nb = shuf(NEIGHBOUR), ot = shuf(OTHERS);
     // the 50-year jump: neighbour, choice, shock, shock; the final run: neighbour, shock, choice, flood, shock
-    const schedule = [nb[0], ot[0], sh[0], sh[1], nb[1], sh[2], ot[1], 'flood', sh[3]];
+    const nc = shuf(NEWC);
+    // the 50-year jump (6 stops): neighbour, choice, shock, new crisis, choice, shock
+    // the final run (6 stops): neighbour, shock, new crisis, choice, flood, shock
+    const schedule = [nb[0], ot[0], sh[0], nc[0], ot[1], sh[1], nb[1], sh[2], nc[1], ot[2], 'flood', sh[3]];
 
     const state = {
       v: 2, seed, team: team || '', level: 1, year: 0, phase: 'plan',
       tiles, deposits, buildings: {}, bid: 0,
       kids: 300 * 1, adults: 600, elders: 100, pop: 1000,
-      money: 0, water: 600 * K, foodStore: 0, pollution: 12, rain: 1,
+      money: L1_BUDGET, water: 600 * K, foodStore: 0, pollution: 12, rain: 1,
       mods: [], schedule, eventsDone: [], tally: null, goodwill: 0, helpLog: [], flags: {}, memory: [],
       history: [], log: [], sdgSum: null, sdgYears: 0, streak: { short: 0, pol: 0 },
       dead: null, finalStart: null, jumpStart: null, debt: false,
@@ -369,15 +429,15 @@
     return id;
   }
   function resetTally(state) {
-    state.tally = { years: 0, born: 0, died: { hunger: 0, thirst: 0, poverty: 0, slums: 0, pollution: 0, old: 0 }, rainSum: 0, popStart: state.pop, moneyStart: state.money, used: {}, events: [] };
+    state.tally = { years: 0, born: 0, died: { hunger: 0, thirst: 0, poverty: 0, slums: 0, pollution: 0, old: 0 }, rainSum: 0, popStart: state.pop, agesStart: [state.kids, state.adults, state.elders], moneyStart: state.money, used: {}, events: [] };
   }
 
   // ---------- Placement ----------
   const isDepositType = t => t === 'coal' || t === 'gold' || t === 'uranium' || t === 'mineral';
   function blocksOf(b) { return B[b.type].perBlock ? b.tiles.length : 1; }
   function costOf(state, type, i, size) {
-    if (state.level === 1) return 0;
     const d = B[type];
+    if (state.level === 1 && L1_FREE[type]) return 0;
     if (type === 'road' && state.tiles[i].t === 'river') return d.bridgeCost;
     return d.cost * (d.perBlock ? (size || 1) : 1);
   }
@@ -442,6 +502,11 @@
       if (t.res <= 0 && fp.every(j => state.tiles[j].res <= 0)) return { ok: false, why: 'These blocks are used up' };
     } else if (t.t === 'river' && type !== 'road') {
       return { ok: false, why: 'Cannot build on the river' };
+    }
+    if (state.level === 1 && L1_CAPS[type]) {
+      const cap = L1_CAPS[type], have = Object.values(state.buildings).filter(b => b.type === type);
+      if (have.length >= cap.n) return { ok: false, why: 'Level 1 limit: ' + cap.n + ' ' + d.name + (cap.n > 1 ? 's' : '') + '. More in Level 2.' };
+      if (cap.blocks && fp.length > cap.blocks) return { ok: false, why: 'Level 1 limit: ' + cap.blocks + ' blocks for the ' + d.name + '.' };
     }
     const cost = costOf(state, type, i, fp.length);
     if (cost > state.money + 1e-9) return { ok: false, why: 'Not enough money (needs ' + fmtMoney(cost) + ')' };
@@ -673,13 +738,12 @@
   // ---------- Population (one year) ----------
   function popYear(state, f, foodR, waterR, mode) {
     const kids = state.kids, adults = state.adults, elders = state.elders, pop = kids + adults + elders;
-    const a = clamp(Math.min(foodR, waterR), 0, 2);
-    // children per couple: food and water push toward 4, schools and hospitals pull toward 2
-    let tfr = 2 + 2 * clamp((a - 0.95) / 0.4, 0, 1);
-    tfr -= (tfr - 2) * clamp(0.55 * f.eduCov + 0.25 * f.healthCov, 0, 0.9);
+    // children per couple (2 to 4) depend on schools and hospitals, NOT on food: families keep
+    // growing whether or not the city can feed them. If the food is not there, people starve.
+    const tfr = 3.6 - 1.6 * clamp(0.55 * f.eduCov + 0.25 * f.healthCov, 0, 1);
     const bPct = 1 + modPct(state, 'birthsPct10y') / 100;
     const spread = mode === 'grow' ? 8 : 20;
-    const births = adults * 0.5 * 0.55 * tfr / spread * Math.pow(Math.min(1, a), 2) * bPct;
+    const births = adults * 0.5 * 0.55 * tfr / spread * bPct;
     // causes of death
     const h = Math.max(0, 1 - foodR), t = Math.max(0, 1 - waterR);
     const u = f.workforce ? f.unemployed / f.workforce : 0;
@@ -691,9 +755,10 @@
       hunger: hw * h, thirst: hw * t, poverty: pw * u * care, slums: sw * s * care, pollution: polw * P * care, old: base * oldCare,
     });
     const R = {
-      kids: rates(0.004, 0.45, 0.02, 0.04, 0.0003, care),
-      adults: rates(0.003, 0.3, 0.02, 0.03, 0.00015, care),
-      elders: rates(0.07, 0.6, 0.03, 0.03, 0.0003, 1 - 0.35 * hc),
+      // starvation is the main killer when food runs short: weights are deaths per year per share unfed
+      kids: rates(0.004, 0.8, 0.02, 0.04, 0.0003, care),
+      adults: rates(0.003, 0.6, 0.02, 0.03, 0.00015, care),
+      elders: rates(0.07, 1.0, 0.03, 0.03, 0.0003, 1 - 0.35 * hc),
     };
     const died = { hunger: 0, thirst: 0, poverty: 0, slums: 0, pollution: 0, old: 0 };
     const deaths = {};
@@ -758,10 +823,20 @@
     T.years++; T.born += p.births; for (const k in p.died) T.died[k] += p.died[k]; T.rainSum += f.rain;
 
     // SDGs for this year
-    const s = sdgYear(state, f, foodR, waterR, p.totalDeaths / Math.max(1, state.pop + p.totalDeaths));
+    const popBefore = Math.max(1, state.pop + p.totalDeaths);
+    const s = sdgYear(state, f, foodR, waterR, p.totalDeaths / popBefore, p.died, popBefore);
     if (!state.sdgSum) state.sdgSum = Object.fromEntries(SDGS.map(x => [x.key, 0]));
     SDGS.forEach(x => state.sdgSum[x.key] = (state.sdgSum[x.key] || 0) + s[x.key]);
     state.sdgYears++;
+    // each round (the years after Level 1, 2 and 3) is scored on its own
+    const era = clamp(state.level || 1, 1, 3);
+    if (!state.eras) state.eras = {};
+    const ER = state.eras[era] || (state.eras[era] = { years: 0, sum: Object.fromEntries(SDGS.map(x => [x.key, 0])), lost: 0, popYears: 0, debtYears: 0, lossYears: 0 });
+    SDGS.forEach(x => ER.sum[x.key] = (ER.sum[x.key] || 0) + s[x.key]);
+    ER.years++; ER.popYears += popBefore;
+    ER.lost += p.died.hunger + p.died.thirst + p.died.poverty + p.died.slums; // deaths a better-planned city would have prevented: hunger, thirst, joblessness, slums
+    if (state.money < 0) ER.debtYears++;
+    if (f.net < 0) ER.lossYears++;
 
     state.year++;
     const rec = { year: state.year, pop: Math.round(state.pop), kids: Math.round(state.kids), adults: Math.round(state.adults), elders: Math.round(state.elders),
@@ -769,6 +844,7 @@
       food: +foodR.toFixed(2), water: +waterR.toFixed(2), energy: +f.energyR.toFixed(2), rain: +f.rain.toFixed(2), drought: f.drought, sdg: +avg(s).toFixed(1) };
     state.history.push(rec);
 
+    if (mode !== 'dyn' && state.pop < 5) state.dead = { year: state.year, why: 'population', text: 'Nobody was left: the city could not feed its people.' };
     if (mode === 'dyn') {
       const short = foodR < 0.9 || waterR < 0.9;
       state.streak.short = short ? state.streak.short + 1 : 0;
@@ -780,23 +856,29 @@
     return rec;
   }
 
-  function sdgYear(state, f, foodR, waterR, deathRate) {
+  function sdgYear(state, f, foodR, waterR, deathRate, died, popBefore) {
     const P = state.pollution;
     const pop = Math.max(1, f.pop);
-    // deaths above a natural ~1% a year count against health
     const dr = deathRate == null ? 0.012 : deathRate;
+    const per = k => died && popBefore ? died[k] / popBefore : 0;
+    const u = f.workforce ? f.unemployed / f.workforce : 0;
+    const clean = Math.min(1, f.energyR) * f.cleanShare;
     return {
-      hunger: 100 * clamp((foodR - 0.7) / 0.3, 0, 1),
-      health: 100 * (0.35 * f.healthCov + 0.25 * (1 - P / 100) + 0.4 * (1 - clamp((dr - 0.012) / 0.03, 0, 1))),
+      // SDG 1: jobs for everyone who can work, a city that pays its way, no debt
+      poverty: 100 * (0.6 * clamp(1 - 2 * u, 0, 1) + 0.4 * (f.net >= 0 ? 1 : 0.6 * clamp(1 + f.net / Math.max(1, f.costs), 0, 1))) * (state.money >= 0 ? 1 : 0.5),
+      // nobody goes hungry, and nobody starves (2.5% starving in a year = 0)
+      hunger: 100 * clamp((foodR - 0.8) / 0.2, 0, 1) * (1 - clamp(per('hunger') * 40, 0, 1)),
+      health: 100 * (0.35 * f.healthCov + 0.2 * (1 - P / 100) + 0.45 * (1 - clamp((dr - 0.012) / 0.02, 0, 1))),
       edu: 100 * f.eduCov,
-      water: 100 * Math.min(1, waterR) * (state.water > 0.15 * f.waterCap ? 1 : 0.85) * (1 - 0.35 * (f.riverDirty || 0)),
-      energy: 100 * (0.5 * Math.min(1, f.energyR) + 0.5 * f.cleanShare),
+      water: 100 * Math.min(1, waterR) * (state.water > 0.15 * f.waterCap ? 1 : 0.85) * (1 - 0.35 * (f.riverDirty || 0)) * (1 - clamp(per('thirst') * 40, 0, 1)),
+      // power for everyone, and how much of it is clean
+      energy: 100 * Math.min(1, f.energyR) * (0.5 + 0.5 * f.cleanShare),
       work: 100 * Math.min(1, f.employment / 0.9) * (state.money >= 0 ? 1 : 0.8),
       infra: 100 * f.connected,
-      cities: 100 * (0.6 * Math.min(1, f.cap / pop) + 0.4 * Math.min(1, f.green / 0.3)),
-      consume: 100 * (1 - (f.econ ? f.econExtract / f.econ : 0) * 0.7) * (f.foodCap > 0 ? 1 : 0.85),
-      climate: 100 * (1 - P / 100),
-      // neighbours: how much they trust you (helping them raises it, refusing or using their help lowers it)
+      cities: 100 * (0.7 * Math.min(1, f.cap / pop) + 0.3 * Math.min(1, f.green / 0.3)) * (1 - clamp(per('slums') * 40, 0, 1)),
+      consume: 100 * (1 - (f.econ ? f.econExtract / f.econ : 0) * 0.7) * (f.foodCap > 0 ? 1 : 0.85) * (f.econ > 0 ? 1 : 0.5),
+      // clean air AND clean energy actually delivered (a city with no power gets half)
+      climate: 100 * (1 - P / 100) * (0.5 + 0.5 * clean),
       partner: 100 * clamp(0.5 + (state.goodwill || 0) / 8, 0, 1),
       land: 100 * (0.5 * Math.min(1, f.forestShare / 0.08) + 0.3 * Math.min(1, f.wildShare / 0.25) + 0.2 * (1 - f.dugShare)),
     };
@@ -845,11 +927,11 @@
   }
 
   // ---------- Checkpoint events ----------
-  // The events of the 50-year jump are schedule[0..3]; the final run uses schedule[4..8].
+  // The events of the 50-year jump are schedule[0..5]; the final run uses schedule[6..11].
   function pausesFor(state, phase) {
     const base = phase === 'final' ? state.finalStart : state.jumpStart;
     const list = phase === 'final' ? PAUSES.final : PAUSES.jump2;
-    const off = phase === 'final' ? 4 : 0;
+    const off = phase === 'final' ? PAUSES.jump2.length : 0;
     return list.map((y, k) => ({ year: base + y, eventId: state.schedule[off + k], n: off + k }));
   }
   function applyEffects(state, eff, r, years) {
@@ -934,21 +1016,35 @@
     state.level = lvl; state.phase = 'plan';
     state.log.push({ year: state.year, text: 'Level ' + lvl + ': the land grows to ' + LEVELS[lvl].size + '×' + LEVELS[lvl].size + '.' });
   }
+  // Planned length of each round: set when the round starts (beginEra); missing years after a city dies score 0.
+  function beginEra(state, era, years) { state.eraPlan = state.eraPlan || {}; state.eraPlan[era] = years; }
+  function eraReport(state, era, cap) {
+    const ER = state.eras && state.eras[era];
+    const plan = (state.eraPlan && state.eraPlan[era]) || (era === 3 ? (cap || CAP_YEARS) - (state.finalStart || state.year) : ER ? ER.years : 0);
+    if (!ER || !ER.years) return { era, years: 0, plan, base: 0, sdg: null, lostPer1000: 0, penLives: 0, penMoney: 0, score: 0, reached: false };
+    const sdg = {}; SDGS.forEach(x => sdg[x.key] = ER.sum[x.key] / ER.years);
+    const coverage = plan ? Math.min(1, ER.years / plan) : 1;
+    const base = avg(sdg) * coverage;
+    const lostPer1000 = ER.lost / Math.max(1, ER.popYears) * 1000;   // preventable deaths per 1,000 people a year
+    const penLives = Math.min(20, Math.max(0, lostPer1000 - 2) * 2);   // a little bad luck is free; above 2 per 1,000 a year it costs
+    const penMoney = 10 * ER.debtYears / ER.years + 5 * ER.lossYears / ER.years;
+    return { era, years: ER.years, plan, base, sdg, lostPer1000, penLives, penMoney, score: Math.max(0, base - penLives - penMoney), reached: true };
+  }
   function result(state, cap) {
-    const n = Math.max(1, state.sdgYears);
+    const rounds = [1, 2, 3].map(e => eraReport(state, e, cap));
+    let score = 0; rounds.forEach(r => score += ERA_W[r.era] * r.score);
+    // the SDG breakdown shown to players: the same weights over the rounds the city reached
     const sdg = {};
-    SDGS.forEach(x => sdg[x.key] = +(state.sdgSum ? state.sdgSum[x.key] / n : 0).toFixed(1));
-    const lasted = Math.min(1, state.year / (cap || CAP_YEARS));
-    sdg.cities = +(0.7 * sdg.cities + 30 * lasted).toFixed(1);
-    const score = +avg(sdg).toFixed(1);
-    return { score, sdg, years: state.year, alive: !state.dead, why: state.dead ? state.dead.why : null, whyText: state.dead ? state.dead.text : null, pop: Math.round(state.pop) };
+    SDGS.forEach(x => { let v = 0; rounds.forEach(r => { v += ERA_W[r.era] * (r.sdg ? r.sdg[x.key] * Math.min(1, r.years / Math.max(1, r.plan)) : 0); }); sdg[x.key] = +v.toFixed(1); });
+    return { score: +score.toFixed(1), sdg, rounds: rounds.map(r => Object.assign({}, r, { weight: ERA_W[r.era], base: +r.base.toFixed(1), score: +r.score.toFixed(1), penLives: +r.penLives.toFixed(1), penMoney: +r.penMoney.toFixed(1), lostPer1000: +r.lostPer1000.toFixed(1) })),
+      years: state.year, alive: !state.dead, why: state.dead ? state.dead.why : null, whyText: state.dead ? state.dead.text : null, pop: Math.round(state.pop) };
   }
 
   const api = {
     K, B, BASE, HOUSING, HOUSE_UP, RES_PER_BLOCK, UNIT, SDGS, LEVELS, WORLD, PAUSES, CAP_YEARS, EVENTS, SHOCKS,
     idx, inLevel, newGame, canPlace, build, demolish, footprint, factoryPaths, maxPathSize, costOf, upgradeOptions, upgrade,
     flows, step, advance, startLevel, result, isDrought, labelFor, fmtMoney, outlook, rates, situations, resetTally,
-    pausesFor, resolveEvent, applyEffects, blocksOf, eventView, severity, NEIGHBOUR, defaultChoice,
+    pausesFor, resolveEvent, applyEffects, blocksOf, eventView, severity, NEIGHBOUR, NEWC, defaultChoice, beginEra, eraReport, ERA_W, L1_BUDGET, L1_CAPS, L1_FREE,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Eco = api;
 })(typeof window !== 'undefined' ? window : globalThis);
