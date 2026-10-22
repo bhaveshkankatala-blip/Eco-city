@@ -127,6 +127,7 @@ function newGame(team, phone, repeat) {
   persist();
   refresh(true);
   if (has3D) { R3.envNow(); layoutInsets(); R3.setLevel(1, false); R3.setDayLength(S.cfg.dayMin || settings.dayMin); R3.newDay(7); }
+  rainFx.next = Date.now() + (70 + Math.random() * 60) * 1000; rainFx.target = 0; rainFx.told = 0; // first shower a minute or two in
   startGuide();
 }
 
@@ -329,8 +330,8 @@ function renderInspector() {
   let staff = '';
   if (d.min) {
     const fr = ui.flows ? ui.flows.unemployed : 0;
-    staff = '<div class="crew"><label for="wk" class="wkl">Workers in this building: <b class="num" id="wkv">' + fmt(bd.workers) + '</b> of ' + fmt(d.max * n) + ' · <span id="wkpct">' + Math.round(bd.workers / (d.max * n) * 100) + '%</span> output</label>' +
-      '<input id="wk" type="range" min="' + d.min * n + '" max="' + d.max * n + '" step="' + (d.max * n <= 20 ? 1 : E.K) + '" value="' + bd.workers + '">' +
+    staff = '<div class="crew"><label for="wk" class="wkl">Workers in this building: <b class="num" id="wkv">' + fmt(bd._w || 0) + '</b> of ' + fmt(d.max * n) + ' · <span id="wkpct">' + Math.round((bd._w || 0) / (d.max * n) * 100) + '%</span> output<span id="wkwait">' + crewWait(bd) + '</span></label>' +
+      '<input id="wk" type="range" min="' + d.min * n + '" max="' + d.max * n + '" step="' + (d.max * n <= 20 ? 1 : E.K) + '" value="' + Math.min(bd.workers, Math.max(d.min * n, bd._w || 0)) + '">' +
       '<small>Fewer workers = every output of this building falls in proportion. People you take out become free workers (<b id="wkfree">' + fmt(fr) + '</b> free now). <a href="#" id="wkall">Assign workers across the city</a></small></div>';
   }
   // upgrade cards (Clash of Clans style)
@@ -356,8 +357,9 @@ function renderInspector() {
   const wk = $('wk');
   if (wk) wk.oninput = () => {
     E.setWorkers(S, bd.id, +wk.value);
-    $('wkv').textContent = fmt(bd.workers); $('wkpct').textContent = Math.round(bd.workers / (d.max * n) * 100) + '%';
-    refresh(false, true); $('wkfree').textContent = fmt(ui.flows.unemployed); persist();
+    refresh(false, true);
+    $('wkv').textContent = fmt(bd._w || 0); $('wkpct').textContent = Math.round((bd._w || 0) / (d.max * n) * 100) + '%'; $('wkwait').textContent = crewWait(bd);
+    $('wkfree').textContent = fmt(ui.flows.unemployed); persist();
   };
   if ($('wkall')) $('wkall').onclick = e => { e.preventDefault(); openWorkers(null); };
   $('closeIns').onclick = () => { ui.sel = null; if (has3D) R3.select(null); refresh(); };
@@ -378,6 +380,7 @@ function afterDemolish(freed, name) {
   refresh(); persist();
   if (freed > 0 && S.phase === 'plan') openWorkers({ freed, name });
 }
+const crewWait = b => (b.workers > (b._w || 0) ? ' · ' + fmt(b.workers - (b._w || 0)) + ' more wanted, no free workers' : '');
 let ra = null;
 function crewList() {
   E.flows(S);
@@ -399,9 +402,9 @@ function renderWorkers() {
   $('raList').innerHTML = ra.rows.map((c, k) => {
     const w = c.b._w || 0, target = c.b.workers, pct = Math.round(w / c.mx * 100);
     const closed = w < c.mn;
-    const canAdd = target < c.mx && f.unemployed > 0, canSub = target > c.mn;
-    return '<div class="rarow' + (closed ? ' closed' : '') + '" data-k="' + k + '"><div><b>' + B[c.b.type].name + '</b><small>' + (closed ? 'Closed · needs ' + fmt(c.mn) + ' workers' : fmt(w) + ' of ' + fmt(c.mx) + ' workers · ' + pct + '% output') + (target > w && !closed ? ' · ' + fmt(target - w) + ' places empty' : '') + '</small></div>' +
-      '<button data-a="-" aria-label="Fewer workers"' + (canSub ? '' : ' disabled') + '>−</button><span class="add num">' + fmt(target) + '</span><button data-a="+" aria-label="More workers"' + (canAdd ? '' : ' disabled') + '>+</button></div>';
+    const canAdd = w < c.mx && f.unemployed > 0, canSub = Math.min(target, w) > c.mn;
+    return '<div class="rarow' + (closed ? ' closed' : '') + '" data-k="' + k + '"><div><b>' + B[c.b.type].name + '</b><small>' + (closed ? 'Closed · needs ' + fmt(c.mn) + ' workers' : fmt(w) + ' of ' + fmt(c.mx) + ' workers · ' + pct + '% output') + (target > w ? ' · ' + fmt(target - w) + ' places waiting for free workers' : '') + '</small></div>' +
+      '<button data-a="-" aria-label="Fewer workers"' + (canSub ? '' : ' disabled') + '>−</button><span class="add num">' + fmt(w) + '</span><button data-a="+" aria-label="More workers"' + (canAdd ? '' : ' disabled') + '>+</button></div>';
   }).join('') || '<p class="lead">No building needs workers yet.</p>';
 }
 $('raList').addEventListener('click', e => {
@@ -410,8 +413,10 @@ $('raList').addEventListener('click', e => {
   if (has3D) R3.select(c.b.id);
   if (!btn) return;
   const f = E.flows(S);
-  if (btn.dataset.a === '+') E.setWorkers(S, c.b.id, c.b.workers + Math.min(c.step, Math.max(1, f.unemployed)));
-  else E.setWorkers(S, c.b.id, c.b.workers - c.step);
+  // work from the people actually there (a building may be waiting for more than it has)
+  const now = Math.min(c.b.workers, c.b._w || 0);
+  if (btn.dataset.a === '+') E.setWorkers(S, c.b.id, now + Math.min(c.step, Math.max(1, f.unemployed)));
+  else E.setWorkers(S, c.b.id, Math.max(c.mn, now - c.step));
   renderWorkers(); refresh(false, true); persist();
 });
 function closeWorkers() {
@@ -1331,9 +1336,9 @@ function rainTick(dt) {
   if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
   const g = c.getContext('2d'); g.clearRect(0, 0, w, h);
   const want = Math.round(rainFx.a * Math.min(420, w * h / 3500));
-  while (rainFx.drops.length < want) rainFx.drops.push({ x: Math.random() * (w + 200) - 100, y: Math.random() * h - h, v: 700 + Math.random() * 500, l: 10 + Math.random() * 14 });
+  while (rainFx.drops.length < want) rainFx.drops.push({ x: Math.random() * (w + 200) - 100, y: Math.random() * (h + 40) - 40, v: 700 + Math.random() * 500, l: 12 + Math.random() * 16 });
   if (rainFx.drops.length > want) rainFx.drops.length = want;
-  g.strokeStyle = 'rgba(205,225,245,' + (0.25 + 0.35 * rainFx.a).toFixed(2) + ')'; g.lineWidth = 1.2; g.beginPath();
+  g.strokeStyle = 'rgba(214,232,250,' + (0.3 + 0.4 * rainFx.a).toFixed(2) + ')'; g.lineWidth = 1.4; g.beginPath();
   for (const d of rainFx.drops) {
     d.y += d.v * dt; d.x -= d.v * dt * 0.18;
     if (d.y > h) { d.y = -d.l - Math.random() * 60; d.x = Math.random() * (w + 200) - 100; }
