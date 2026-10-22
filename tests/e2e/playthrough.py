@@ -92,6 +92,7 @@ async def steps(pg, shot):
         await pg.evaluate("""()=>{const t=window.__t,S=t.S;document.querySelector('[data-tab=energy]').click();
           setTimeout(()=>{document.querySelector('[data-type=coalPlant]').click();const i=S.tiles.findIndex(x=>x.t==='coal'&&!x.b&&t.E.inLevel(1,x.x,x.y));t.ui.size=2;t.setHover(i);},100)}""")
         await pg.wait_for_timeout(2500); await shot('1b-level1-factory-picker')
+        await pg.hover('[data-type=nuclear]'); await pg.wait_for_timeout(1500); await shot('1b2-card-info-strip')
         await pg.evaluate("""()=>{const t=window.__t,S=t.S;t.ui.tool=null;const i=S.tiles.findIndex(x=>x.dep&&!x.b&&t.E.inLevel(1,x.x,x.y));t.clickTile(i);}""")
         await pg.wait_for_timeout(1500); await shot('1c-level1-block-info')
         await pg.evaluate(FINISH); await pg.wait_for_timeout(1500)
