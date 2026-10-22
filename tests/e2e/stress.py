@@ -96,7 +96,7 @@ async def main():
         await b.close()
 async def games(fr, pg, vis, stats, play_level, run_jump):
         for g in range(GAMES):
-            await fr.fill('#teamName', f'Stress {g}'); await fr.fill('#teamRoll', f'R{g}'); await fr.fill('#teamPhone', '9876543210')
+            await fr.fill('#teamName', f'Stress {g}'); await fr.fill('#teamPhone', f'98765{g:05d}')
             await fr.click('#startGo'); await pg.wait_for_timeout(3000)
             if await vis('guide'):
                 for _ in range(4):

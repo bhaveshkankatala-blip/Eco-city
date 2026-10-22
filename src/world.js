@@ -357,7 +357,7 @@ const cam = { tx: -0.5, tz: -0.5, dist: 26, yaw: Math.PI / 4, pitch: 0.84 };
 const camG = Object.assign({}, cam);
 let orbit = 0;
 let camMats = null;
-let envS = { p: 0, d: 0, wf: 0.75, dead: 0 }, envT = { p: 0, d: 0, wf: 0.75, dead: 0 };
+let envS = { p: 0, d: 0, wf: 0.75, dead: 0, rain: 0 }, envT = { p: 0, d: 0, wf: 0.75, dead: 0, rain: 0 };
 let gridOn = 0, gridA = 0;
 let lastT = 0;
 
@@ -873,11 +873,15 @@ function puffAt(tiles, n) {
 function computeEnv(time) {
   const k = 1 - Math.exp(-0.05);
   for (const key of ['p', 'd', 'wf', 'dead']) envS[key] += (envT[key] - envS[key]) * k;
+  envS.rain += (envT.rain - envS.rain) * 0.04; // showers roll in over a second or two
+  const rn = clamp(envS.rain, 0, 1);
   const p = clamp(envS.p / 100, 0, 1), dr = clamp(envS.d, 0, 1), dead = clamp(envS.dead, 0, 1);
   // pollution under ~12% leaves the valley pristine; by 80% the city is choking
   const pe = smooth(0.12, 0.8, p);
   let skyTop = mixc(C('#3f8fd8'), C('#7d7462'), pe), skyHor = mixc(C('#cfe8f7'), C('#b9a27a'), pe), skyBot = mixc(C('#eef5fa'), C('#a8977a'), pe);
   skyHor = mixc(skyHor, C('#e8d6a6'), dr * 0.5); skyBot = mixc(skyBot, C('#e3d2a4'), dr * 0.4);
+  // rain clouds: grey sky, dimmer sun, shorter view
+  skyTop = mixc(skyTop, C('#5f6d7a'), rn * 0.75); skyHor = mixc(skyHor, C('#a3adb5'), rn * 0.6); skyBot = mixc(skyBot, C('#b4bcc2'), rn * 0.5);
   skyTop = mixc(skyTop, C('#6f7c86'), dead * 0.8); skyHor = mixc(skyHor, C('#a9a49b'), dead * 0.8); skyBot = mixc(skyBot, C('#99948c'), dead * 0.8);
   // time of day: sun height, warm low light at dawn and dusk, moonlight at night
   const D = dayNow(time), el = Math.sin(Math.PI * (D.h - 6) / 12);
@@ -892,6 +896,7 @@ function computeEnv(time) {
   skyBot = mixc(mixc(dayBot, gBot, gold), C('#0a0f20'), night);
   let sunCol = mixc(mixc(mixc([1.55, 1.46, 1.32], [1.0, 0.82, 0.6], pe), [1.7, 1.45, 1.05], dr * 0.4), [0.85, 0.83, 0.8], dead);
   sunCol = mixc(mixc(sunCol, morning ? [1.75, 0.8, 0.5] : [1.85, 0.62, 0.28], gold), [0.035, 0.05, 0.11], night);
+  sunCol = sunCol.map(v => v * (1 - 0.45 * rn));
   let grass = mixc([1, 1, 1], [0.8, 0.7, 0.5], pe);
   grass = mixc(grass, [1.25, 0.98, 0.45], dr * 0.9);
   grass = mixc(grass, [0.55, 0.53, 0.5], dead);
@@ -916,7 +921,7 @@ function computeEnv(time) {
     e.lightN = k;
   } else e.lightN = 0;
   e.skyTop = skyTop; e.skyHor = skyHor; e.skyBot = skyBot; e.fog = skyHor; e.horY = 0.45;
-  e.fogN = cam.dist * (1.55 - pe * 0.95 - dead * 0.35); e.fogF = cam.dist * (3.6 - pe * 1.6 - dead * 0.6);
+  e.fogN = cam.dist * (1.55 - pe * 0.95 - dead * 0.35 - rn * 0.3); e.fogF = cam.dist * (3.6 - pe * 1.6 - dead * 0.6 - rn * 0.6);
   e.water = water; e.waterDeep = waterDeep;
   e.shadowCenter = [cam.tx * 0.5, 0, cam.tz * 0.5]; e.shadowRadius = 21;
   if (world.terrain) { world.terrain.tint = grass; }
@@ -1129,6 +1134,7 @@ const R3 = {
     updateHover();
   },
   envNow() { Object.assign(envS, envT); },
+  weather(rain) { envT.rain = clamp(rain || 0, 0, 1); },
   hover(i, tool, ok, fp) { hoverState = { i, tool, ok, fp: fp || [] }; if (S) updateHover(); },
   select(id) { selId = id; if (S) updateHover(); },
   grid(on) { gridOn = on ? 1 : 0; },

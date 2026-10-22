@@ -128,10 +128,15 @@ test('every team gets all four shocks, a flood, two new crises, two neighbours a
 });
 
 test('resolving an event applies the shock and the chosen effects', () => {
-  const s = E.newGame(10); s.money = 0;
-  E.resolveEvent(s, 'monsoon-failure', 0);
+  const s = E.newGame(10); s.money = 1000; E.resetTally(s);
+  const w0 = s.water;
+  const ch = E.resolveEvent(s, 'monsoon-failure', 0);
   assert.ok(s.mods.some(m => m.key === 'rainPct10y' && m.pct < 0 && m.until === s.year + 3), 'short sharp shock');
-  assert.ok(s.money < 0, 'trucking water costs money');
+  assert.ok(s.money < 1000, 'trucking water costs money');
+  assert.ok(ch.impact && typeof ch.impact.water === 'number', 'the screen gets a summary of what changed');
+  const t = E.newGame(10); t.money = 0; E.resetTally(t);
+  assert.ok(E.eventView(t, 'monsoon-failure').choices[0].disabled, 'a choice you cannot afford is disabled');
+  assert.strictEqual(E.resolveEvent(t, 'monsoon-failure', 0).index, E.defaultChoice('monsoon-failure', t), 'and cannot be picked');
 });
 
 test('coal blocks run out and the factory closes', () => {
@@ -161,34 +166,69 @@ test('solar, wind and batteries need only one or two people', () => {
   for (const k of ['solar', 'wind', 'battery']) { assert.strictEqual(E.B[k].min, 1); assert.strictEqual(E.B[k].max, 2); }
 });
 
-test('workers freed by a demolition wait (hold) and go where the player pins them', () => {
-  const s = E.newGame(4242); put(s, 'foodFarm', 6); put(s, 'coalPlant', 1, 2); put(s, 'cashFarm', 3);
-  let f = E.flows(s);
-  const farm = Object.values(s.buildings).find(b => b.type === 'cashFarm');
-  const freed = farm._w; assert.ok(freed > 0);
-  E.demolish(s, farm.id); s.hold = freed;
-  const before = E.flows(s).unemployed;
-  assert.ok(before >= freed, 'held workers stay without work');
-  const target = Object.values(s.buildings).find(b => b.type === 'cashFarm');
-  target.pin = E.B.cashFarm.max; target.workers = target.pin; s.hold = 0;
-  f = E.flows(s);
-  assert.strictEqual(target._w, E.B.cashFarm.max, 'pinned building is staffed first');
+test('v6: a smaller crew means proportionally less output, and frees workers', () => {
+  const s = E.newGame(4242); put(s, 'foodFarm', 3);
+  const farm = Object.values(s.buildings).find(b => b.type === 'foodFarm');
+  const f0 = E.flows(s), full = farm._eff;
+  E.setWorkers(s, farm.id, E.B.foodFarm.min);
+  const f1 = E.flows(s);
+  assert.ok(Math.abs(farm._eff - full * E.B.foodFarm.min / E.B.foodFarm.max) < 1e-9, 'output in proportion to the crew');
+  assert.ok(f1.food < f0.food);
+  assert.strictEqual(f1.unemployed - f0.unemployed, E.B.foodFarm.max - E.B.foodFarm.min, 'the rest are free to work elsewhere');
+  assert.strictEqual(E.setWorkers(s, farm.id, 1), E.B.foodFarm.min, 'never below the minimum crew');
+});
+
+test('v6: during the years that pass, new workers join understaffed buildings', () => {
+  const s = E.newGame(4242); put(s, 'foodFarm', 6);
+  Object.values(s.buildings).forEach(b => { if (b.type === 'foodFarm') E.setWorkers(s, b.id, 0); });
+  const before = E.flows(s).jobs;
+  assert.ok(E.flows(s).unemployed > 0);
+  E.step(s, 'grow');
+  assert.ok(E.flows(s).jobs > before, 'free workers were put to work');
+});
+
+test('v6: each factory upgrade costs more than the last, and more than a new block', () => {
+  const s = E.newGame(777); E.startLevel(s, 2); s.money = 1e6;
+  const i = s.tiles.findIndex((t, k) => t.t === 'uranium' && E.inLevel(2, t.x, t.y) && E.factoryPaths(s, 'nuclear', k, 3).length);
+  const r = E.build(s, 'nuclear', i, { size: 1 });
+  const c1 = E.upgradeOptions(s, r.id)[0].cost; E.upgrade(s, r.id, 'block');
+  const c2 = E.upgradeOptions(s, r.id)[0].cost;
+  assert.ok(c1 > E.B.nuclear.cost && c2 > c1);
+});
+
+test('v6: the monsoon refills part of the reservoir every year', () => {
+  const s = E.newGame(9); put(s, 'foodFarm', 4); s.water = 0;
+  E.step(s, 'grow');
+  assert.ok(s.water > 500);
 });
 
 test('neighbours remember: help them and they help you; refuse and no help comes', () => {
   const ask = id => E.EVENTS[id].choices.findIndex(c => c.ask);
   const kind = E.newGame(31); put(kind, 'foodFarm', 4); E.resetTally(kind);
   E.resolveEvent(kind, 'neighbour-water', 0);
-  const w0 = kind.water;
-  const ch = E.resolveEvent(kind, 'monsoon-failure', ask('monsoon-failure'));
-  assert.match(ch.outcome, /helped/);
-  assert.ok(kind.water > w0 + 3000, 'neighbours send water');
   const mean = E.newGame(31); put(mean, 'foodFarm', 4); E.resetTally(mean);
   E.resolveEvent(mean, 'neighbour-water', 2);
-  const w1 = mean.water;
+  mean.water = kind.water;   // same starting point for the crisis
+  const ch = E.resolveEvent(kind, 'monsoon-failure', ask('monsoon-failure'));
+  assert.match(ch.outcome, /helped/);
   const ch2 = E.resolveEvent(mean, 'monsoon-failure', ask('monsoon-failure'));
   assert.match(ch2.outcome, /turned them away/);
-  assert.strictEqual(mean.water, w1, 'no help comes');
+  assert.ok(kind.water > mean.water + 3000, 'neighbours send water to the town that helped them');
+});
+
+test('v6: crises hit now (people, reservoir, buildings) and neighbours cannot be given what you do not have', () => {
+  const s = E.newGame(12); put(s, 'foodFarm', 6); put(s, 'house', 4); E.resetTally(s);
+  const pop0 = s.pop;
+  const ch = E.resolveEvent(s, 'cyclone', E.defaultChoice('cyclone', s));
+  assert.ok(s.pop < pop0 && ch.impact.people < 0, 'people die in the storm');
+  const d = E.newGame(12); d.water = 500; d.foodStore = 0; E.resetTally(d);
+  const v = E.eventView(d, 'neighbour-water');
+  assert.ok(v.choices.filter(c => c.need).every(c => c.disabled), 'cannot share water you do not have');
+  assert.ok(v.choices.some(c => c.cannot), 'an honest answer is offered');
+  d.schedule[0] = 'neighbour-food';
+  const alt = E.relevantEvent(d, 'neighbour-food', 0);
+  assert.strictEqual(alt, 'neighbour-refugees', 'a request that makes no sense is swapped for one that does');
+  assert.strictEqual(d.schedule.filter(k => k === 'neighbour-refugees').length, 1, 'and nothing repeats');
 });
 
 test('earlier choices make later crises worse', () => {

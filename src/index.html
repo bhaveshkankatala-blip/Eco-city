@@ -207,6 +207,10 @@ body { background: #9cc9e6; }
 #map { background: #9cc9e6; cursor: grab; }
 #map:active { cursor: grabbing; }
 #tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+.startBtns { flex-wrap: wrap; }
+.startBtns #startGo { flex: 1 1 100%; }
+.startBtns .ghost { flex: 1 1 0; min-width: 0; padding-left: 8px; padding-right: 8px; white-space: nowrap; }
+#rainFx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
 .tag3d { position: absolute; left: 0; top: 0; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: rgba(20, 30, 38, .9); color: #ff8b7d; border: 1.5px solid rgba(239, 91, 76, .8); box-shadow: 0 3px 8px rgba(0,0,0,.3); }
 .tag3d.used { color: #e7cfa5; border-color: rgba(200, 170, 120, .8); }
 .floaty { position: absolute; transform: translate(-50%, -100%); display: grid; justify-items: center; gap: 2px; white-space: nowrap; animation: floatUp 1.8s ease-out forwards; }
@@ -216,6 +220,7 @@ body { background: #9cc9e6; }
 #mapCtl { position: absolute; right: 12px; bottom: 214px; display: flex; gap: 2px; padding: 4px; z-index: 2; }
 #mapCtl button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--text); }
 #mapCtl button:hover { background: var(--raise); }
+#mapCtl button[aria-pressed=true] { background: var(--leaf); color: #062014; }
 .card { width: 124px; height: 150px; }
 #cards { padding: 8px 10px; }
 .card img.thumb, .card .thumb { width: 104px; height: 78px; display: block; margin: 0 auto 2px; object-fit: contain; }
@@ -336,7 +341,8 @@ body { background: #9cc9e6; }
 .uphead .lvl { font-family: var(--f-display); font-weight: 700; font-size: 12px; padding: 1px 8px; border-radius: 6px; background: #0b1a24; }
 .uphead .lvl.next { background: var(--sun); color: #3a2a00; }
 .uphead .tick { color: #3fb5f2; font-weight: 700; }
-.upgain { font-size: 12px; color: #d6f5d8; margin: 4px 0 6px; }
+.upgain { font-size: 12px; color: #d6f5d8; margin: 4px 0 2px; }
+.upneed { font-size: 11.5px; color: #ffd9a0; margin: 0 0 4px; }
 .upwhy { font-size: 11.5px; color: var(--muted); }
 .upbtn { width: 100%; background: linear-gradient(180deg, #ffd65a, #f0a92a); color: #3a2400; border: 0; font-family: var(--f-display); font-weight: 700; font-size: 14px; box-shadow: 0 3px 0 #a86a10; }
 .upbtn:active { transform: translateY(2px); box-shadow: 0 1px 0 #a86a10; }
@@ -425,11 +431,11 @@ body { background: #9cc9e6; }
 .ages span { font-size: 10px; color: var(--muted); line-height: 1.25; }
 .ages.wh { margin: 10px 0; } .ages.wh b { font-size: 16px; }
 .card .ch .wk { color: #b48cf2; font-weight: 600; }
-#cardInfo { position: absolute; left: 12px; right: 12px; bottom: 206px; z-index: 4; pointer-events: none; padding: 8px 12px; font-size: 12.5px; line-height: 1.45; color: #d6e6e3; }
-#cardInfo b { font-family: var(--f-display); font-size: 14px; color: var(--text); margin-right: 6px; }
-#cardInfo .pr { color: var(--sun); font-weight: 600; margin-right: 6px; }
-#cardInfo .lk { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: #0b1a24; color: var(--muted); margin-right: 6px; }
-#cardInfo .facts { color: var(--muted); }
+#cardInfo { position: absolute; left: 12px; right: 12px; bottom: 206px; z-index: 4; pointer-events: none; padding: 9px 14px; font-size: 13px; line-height: 1.45; color: #1d2a30; background: #fff8e6; border: 2px solid #f5a524; box-shadow: 0 8px 22px rgba(0,0,0,.35); }
+#cardInfo b { font-family: var(--f-display); font-size: 14.5px; color: #10222b; margin-right: 6px; }
+#cardInfo .pr { color: #a35c00; font-weight: 700; margin-right: 6px; }
+#cardInfo .lk { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: #1d2a30; color: #fff; margin-right: 6px; }
+#cardInfo .facts { color: #3d4f57; }
 #modeBar { position: absolute; top: 112px; left: 50%; transform: translateX(-50%); z-index: 6; max-width: min(720px, calc(100% - 600px)); padding: 8px 14px; border-radius: 10px; background: rgba(245,197,68,.95); color: #2b2100; font-size: 13px; text-align: center; box-shadow: 0 8px 20px rgba(0,0,0,.3); }
 #modeBar b { font-family: var(--f-display); margin-right: 4px; }
 #modeBar kbd { font: inherit; font-weight: 700; padding: 0 5px; border-radius: 4px; background: rgba(0,0,0,.12); }
@@ -445,17 +451,44 @@ body { background: #9cc9e6; }
 .rscore { display: grid; grid-template-columns: auto auto 1fr; gap: 4px 12px; align-items: baseline; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--raise); }
 .rscore b { font-family: var(--f-display); font-size: 28px; }
 .rscore span { font-size: 12px; color: var(--muted); }
+/* v6 event impact */
+.evnotes .expect { margin-bottom: 6px; color: #ffd9b0; }
+.evc:disabled { opacity: .45; cursor: not-allowed; }
+.evc.cannot { border-style: dashed; }
+.impact { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; }
+.impact div { padding: 6px 8px; border-radius: 8px; background: #0b1a24; display: grid; }
+.impact small { font-size: 10.5px; color: var(--muted); }
+.impact b { font-size: 14px; }
+.impact .bad b { color: #ff9c90; } .impact .good b { color: #9ae6a1; }
+/* new-level popup, crew dialog, card info, free-workers button */
+.ungrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; max-height: 50vh; overflow: auto; margin-top: 10px; }
+.uncard { display: grid; grid-template-columns: 76px 1fr; gap: 8px; align-items: start; padding: 8px; border-radius: 10px; background: var(--raise); }
+.uncard img { width: 76px; height: 57px; object-fit: contain; }
+.uncard b { font-family: var(--f-display); font-size: 14.5px; }
+.uncard .tab { margin-left: 6px; font-size: 10.5px; padding: 1px 6px; border-radius: 6px; background: #0b1a24; color: var(--muted); }
+.uncard p { margin: 3px 0 0; font-size: 12px; line-height: 1.4; color: #cfe2df; }
+.unup { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(245,197,68,.12); border: 1px solid rgba(245,197,68,.45); font-size: 13px; line-height: 1.5; color: #f5e6bd; }
+.cwrow { display: flex; gap: 12px; align-items: center; margin: 12px 0 4px; }
+.cwrow input { flex: 1; accent-color: var(--leaf); }
+.cwrow b { font-family: var(--f-display); font-size: 24px; min-width: 60px; text-align: right; }
+#cwInfo .bad { color: #ff9c90; }
+.cwsame { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.crew small { display: block; font-size: 11px; color: var(--muted); line-height: 1.4; margin-top: 2px; }
+.crew small a { color: #7cc7ff; }
+.holdchip.busy { animation: pulse 1.6s infinite; }
+.holdchip:not(.busy) { border-color: var(--line); background: var(--raise); color: var(--text); animation: none; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
 <div id="app">
-  <canvas id="map" aria-label="City map. Drag to move, right-drag to rotate, scroll to zoom."></canvas>
+  <canvas id="map" aria-label="City map. Drag to move, right-drag or shift-drag to rotate, scroll or pinch to zoom."></canvas>
   <div id="tags" aria-hidden="true"></div>
   <div id="mapCtl" class="panel" aria-label="Camera">
     <button data-cam="l" title="Rotate left (Q)"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 11a8 8 0 1 1 2.3 5.7"/><path d="M4 5v6h6"/></svg></button>
     <button data-cam="r" title="Rotate right (E)"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button>
     <button data-cam="in" title="Zoom in (+)"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
     <button data-cam="out" title="Zoom out (−)"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+    <button data-cam="flip" aria-pressed="false" title="Flip scroll and drag direction (if the map moves the wrong way on your touchpad)"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg></button>
     <button data-cam="home" title="Show the whole city"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   </div>
 
@@ -513,16 +546,15 @@ body { background: #9cc9e6; }
       <p class="pitch" id="pitch"></p>
       <form id="startForm">
         <div class="field"><label for="teamName">Team name</label><input id="teamName" maxlength="40" autocomplete="off" placeholder="e.g. Green Builders"></div>
-        <div class="grid2 tight"><div class="field"><label for="teamRoll">Team lead roll number</label><input id="teamRoll" maxlength="20" autocomplete="off" placeholder="e.g. 23CSB0A12"></div>
-        <div class="field"><label for="teamPhone">Phone number</label><input id="teamPhone" maxlength="14" inputmode="numeric" autocomplete="off" placeholder="10 digits"></div></div>
+        <div class="field"><label for="teamPhone">Team lead's phone number</label><input id="teamPhone" maxlength="14" inputmode="numeric" autocomplete="off" placeholder="10 digits"></div>
         <p class="lead" id="startErr" hidden style="color:#ff9c90;margin:0 0 8px"></p>
-        <div class="row2"><button class="btn primary big" type="submit" id="startGo">Start Level 1</button><button class="btn big ghost" type="button" id="startRules">How to play</button><button class="btn big ghost" type="button" id="startSdg">The 13 goals</button></div>
+        <div class="row2 startBtns"><button class="btn primary big" type="submit" id="startGo">Start Level 1</button><button class="btn big ghost" type="button" id="startRules">How to play</button><button class="btn big ghost" type="button" id="startSdg">The 13 goals</button><button class="btn big ghost" type="button" id="startBoard">Leaderboard</button></div>
       </form>
       <div id="resumeBox" hidden style="margin-top:12px"></div>
       <ol class="levels3">
-        <li><b>Foundations</b><span><span id="l1t">15 min</span> · A ₹35 L budget; farms are free up to a limit. Plan for the children who will be born, not just today's 1,000.</span></li>
-        <li><b>Grow</b><span><span id="l2t">8 min</span> · Bigger land, real money, upgrades. Then 50 years pass, with a decision every 10.</span></li>
-        <li><b>Build to last</b><span><span id="l3t">8 min</span> · Hospitals and the future. Then your city runs alone to year 500.</span></li>
+        <li><b>Foundations</b><span><span id="l1t">15 min</span> · A ₹50 L budget; farms are free up to a limit. Plan for the children who will be born, not just today's 1,000.</span></li>
+        <li><b>Grow</b><span><span id="l2t">8 min</span> · Bigger land, real money, upgrades, hospitals and storage. Then 50 years pass, with a decision every 10.</span></li>
+        <li><b>Build to last</b><span><span id="l3t">8 min</span> · Energy storage, industrial parks, pollution control, parks and forests. Then your city runs alone to year 500.</span></li>
       </ol>
       <button type="button" class="linkbtn" id="startOrg">Organisers</button>
     </div>
@@ -533,15 +565,17 @@ body { background: #9cc9e6; }
       <h2>How to play</h2>
       <div class="rules">
         <h3>The goal</h3>
-        <p>1,000 people live on your island: 300 children, 600 adults and 100 elderly. Build a city that keeps them, and their children's children, fed and safe until year 500. Your city is scored on 13 UN goals in three rounds: the years after Level 1 (30% of your score), after Level 2 (35%) and after Level 3 (35%). Each round loses points for deaths a better city would have prevented (hunger, thirst, joblessness, slums) and for losing money or going into debt.</p>
+        <p>1,000 people live on your island: 300 children, 600 adults and 100 elderly. Build a city that keeps them, and their children's children, fed and safe until year 500. Your city is scored on 13 UN goals in three rounds: the years after Level 1 (20% of your score), after Level 2 (40%) and after Level 3 (40%). Each round loses points for deaths a better city would have prevented (hunger, thirst, joblessness, slums) and for losing money or going into debt.</p>
         <h3>Building</h3>
-        <ul><li>Pick a building from the bar at the bottom, then click a block on the map.</li><li>Coal, gold, uranium and mineral blocks are scattered. Click one to see how much is in it. A factory covers 1 or more connected blocks: choose the size and press <b>Next path</b> (or R) to change the shape.</li><li>Farms and other buildings may use spare resource blocks, but to mine there later you must demolish them first.</li><li>Level 1 gives you a ₹35 L budget. Food and cash farms are free (up to 10 and 3); one coal plant of at most 2 blocks. From Level 2 you pay with what your city earned, and can upgrade factories (one more block) and homes (rooftop solar, rainwater harvesting).</li><li>Choose <b>Inspect &amp; demolish → Inspect</b> and click any building to see its workers, output and upgrades.</li></ul>
+        <ul><li>Pick a building from the bar at the bottom, then click a block on the map.</li><li>Coal, gold, uranium and mineral blocks are scattered. Click one to see how much is in it. A factory covers 1 or more connected blocks: choose the size and press <b>Next path</b> (or R) to change the shape.</li><li>Farms and other buildings may use spare resource blocks, but to mine there later you must demolish them first.</li><li>Level 1 gives you a ₹50 L budget. Food and cash farms are free (up to 10 and 3); one coal plant of at most 2 blocks. From Level 2 you pay with what your city earned.</li><li><b>Upgrades (from Level 2):</b> Inspect a plant, mine or factory to grow it onto the next resource block. Each step costs more than the last and needs more workers, water and energy. Homes can add rooftop solar and rainwater harvesting.</li><li>Choose <b>Inspect &amp; demolish → Inspect</b> and click any building to see its workers, output and upgrades.</li></ul>
+        <h3>Workers</h3>
+        <p>When you place a farm, plant or factory you choose how many workers it gets. A building makes output in proportion to its crew: half the workers, half the food, energy and money. Water use stays the same and smoke never falls below half, so a half-empty plant is poor value. Move workers any time with <b>Assign workers</b> under Jobs, or Inspect a building. Demolishing a building frees its workers. New workers from a growing city fill empty places on their own.</p>
         <h3>People</h3>
         <p>Adults work; children eat but do not work; the elderly need care. Couples have 2 to 4 children whether or not there is food for them: fewer as schools and hospitals spread. If there is not enough food, people starve. People die of old age, and many more die of hunger, thirst, poverty (no work), slums (no homes) and polluted air. Hospitals help. Nobody moves to the island.</p>
         <h3>Rain</h3>
-        <p>Rain comes from your city: forests and empty land bring it, pollution drives it away. Farms, dams and rivers depend on it.</p>
+        <p>Rain comes from your city: forests and empty land bring it, pollution drives it away. Farms, dams and rivers depend on it. Every year rain refills part of the empty reservoir (about a fifth in a normal monsoon), so the reservoir recovers if you stop over-using it.</p>
         <h3>Time</h3>
-        <p>After Level 1, <span class="jy">8</span> years pass. After Level 2, 50 years pass with a stop every 10 years: something happens and you have 90 seconds to choose. After Level 3 the city runs alone to year 500 with five big moments. Every team faces the same four shocks (monsoon failure, heatwave, disease, a fuel price crash) in a different order.</p>
+        <p>After Level 1, <span class="jy">8</span> years pass. After Level 2, 50 years pass with a stop every 10 years: something happens and you have 90 seconds to choose. After Level 3 the city runs alone to year 500 with five big moments. Every team faces the same four shocks (monsoon failure, heatwave, disease, a fuel price crash) in a different order. A crisis hits at once: people die, money, water and food are lost, buildings can be destroyed. You see it in your numbers and as a red line on the graphs.</p>
         <h3>Neighbours remember</h3>
         <p>Neighbouring towns will ask for your help. Help them and they trust you, trade more with you and send help in your own crises. Turn them away and they remember. Your choices in one crisis can make the next one worse, and how hard a crisis hits depends on the city you built.</p>
         <h3>A city dies when</h3>
@@ -558,9 +592,40 @@ body { background: #9cc9e6; }
       <p class="lead" style="margin:0;text-transform:uppercase;letter-spacing:2px;font-size:11.5px">Workers</p>
       <h2 id="raTitle">Where should these workers go?</h2>
       <p class="lead" id="raLead"></p>
-      <div class="rapool"><span>Free workers</span><b class="num" id="raPool">0</b></div>
+      <div class="rapool"><span>Free workers (no job)</span><b class="num" id="raPool">0</b></div>
       <div class="ralist" id="raList"></div>
-      <div class="row2" style="justify-content:flex-end;flex-wrap:wrap"><button class="btn" id="raAuto">Let the city decide</button><button class="btn primary" id="raDone">Done</button></div>
+      <div class="row2" style="justify-content:flex-end;flex-wrap:wrap"><button class="btn" id="raAuto">Fill empty places automatically</button><button class="btn primary" id="raDone">Done</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="boardScreen" hidden>
+    <div class="sheet" style="width:min(820px,100%)">
+      <h2>Leaderboard</h2>
+      <p class="lead" id="boardNote">Every team's final score, from every laptop.</p>
+      <div class="lbwrap"><table class="lb"><thead><tr><th>#</th><th>Team</th><th>SDG score</th><th>Rounds 1 · 2 · 3</th><th>Years lasted</th><th>Fate</th></tr></thead><tbody id="boardBody"></tbody></table></div>
+      <div class="row2" style="justify-content:flex-end"><button class="btn ghost" id="boardRefresh">Refresh</button><button class="btn primary" id="boardClose">Close</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="unlockScreen" hidden>
+    <div class="sheet" style="width:min(860px,100%)">
+      <p class="lead" style="margin:0;text-transform:uppercase;letter-spacing:2px;font-size:11.5px">New level</p>
+      <h2 id="unTitle"></h2>
+      <p class="lead" id="unLead"></p>
+      <div class="ungrid" id="unGrid"></div>
+      <p class="unup" id="unUp"></p>
+      <div class="row2" style="justify-content:flex-end"><button class="btn primary big" id="unOk">Start building</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="crewScreen" hidden>
+    <div class="sheet" style="width:min(520px,100%)">
+      <p class="lead" style="margin:0;text-transform:uppercase;letter-spacing:2px;font-size:11.5px">Workers</p>
+      <h2 id="cwTitle"></h2>
+      <div class="cwrow"><input id="cwRange" type="range"><b class="num" id="cwVal"></b></div>
+      <p class="lead" id="cwInfo"></p>
+      <label class="cwsame"><input type="checkbox" id="cwSame"> <span id="cwSameLbl"></span></label>
+      <div class="row2" style="justify-content:flex-end"><button class="btn primary" id="cwOk">Done</button></div>
     </div>
   </div>
 
@@ -582,7 +647,7 @@ body { background: #9cc9e6; }
       </div>
       <div class="simB">
         <div class="chartwrap"><canvas id="chart" width="1200" height="300"></canvas>
-          <div class="keyrow"><span><i style="background:#62d36c"></i>Population</span><span><i style="background:#f5c544"></i>Money</span><span><i style="background:#c08cf0"></i>Pollution %</span><span><i style="background:rgba(242,163,58,.5);height:10px"></i>Drought</span></div></div>
+          <div class="keyrow"><span><i style="background:#62d36c"></i>Population</span><span><i style="background:#f5c544"></i>Money</span><span><i style="background:#c08cf0"></i>Pollution %</span><span><i style="background:rgba(242,163,58,.5);height:10px"></i>Drought</span><span><i style="background:#ff6e5f"></i>Crisis</span><span><i style="background:#78beff"></i>Decision</span></div></div>
         <div class="simC"><div class="log" id="simLog"></div>
         <div class="row2 simBtns"><button class="btn" id="simSkip">Skip ahead</button><button class="btn primary big" id="simNext" hidden>Continue</button></div></div>
       </div>
@@ -598,7 +663,7 @@ body { background: #9cc9e6; }
         <p id="evText"></p>
         <div class="evnotes" id="evNotes" hidden></div>
         <div class="evchoices" id="evChoices"></div>
-        <div class="evout" id="evOutcome" hidden><b id="evOutTitle"></b><p id="evOutText"></p><div id="evOutTrust" class="trustrow"></div><button class="btn primary" id="evGo">Continue</button></div>
+        <div class="evout" id="evOutcome" hidden><b id="evOutTitle"></b><p id="evOutText"></p><div id="evOutImpact"></div><div id="evOutTrust" class="trustrow"></div><button class="btn primary" id="evGo">Continue</button></div>
         <p class="lead" id="evDefault" style="font-size:12px"></p>
       </div>
     </div>
@@ -682,7 +747,7 @@ body { background: #9cc9e6; }
         <button class="btn" id="orgClose">Close</button>
       </div>
       <div class="seg" role="tablist"><button id="segLb" aria-selected="true">Leaderboard</button><button id="segSet" aria-selected="false">Game settings</button><button id="segGame" aria-selected="false">This laptop</button></div>
-      <div id="paneLb"><div class="lbwrap"><table class="lb"><thead><tr><th>#</th><th>Team</th><th>SDG score</th><th>Years lasted</th><th>Fate</th><th>Finished</th><th></th></tr></thead><tbody id="lbBody"></tbody></table></div></div>
+      <div id="paneLb"><div class="lbwrap"><table class="lb"><thead><tr><th>#</th><th>Team</th><th>SDG score</th><th>Rounds 1 · 2 · 3</th><th>Years lasted</th><th>Fate</th><th>Finished</th><th></th></tr></thead><tbody id="lbBody"></tbody></table></div></div>
       <div id="paneSet" hidden>
         <form id="setForm">
           <div class="grid2">

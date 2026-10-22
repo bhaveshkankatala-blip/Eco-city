@@ -22,3 +22,6 @@ Thumbs.db
 
 # large generated bundles
 *.zip
+
+# hosting build output (Netlify builds it: node scripts/build.js --site)
+site/

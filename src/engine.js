@@ -97,18 +97,18 @@
 
   const WORLD = 15;
   const LEVELS = {
-    1: { size: 10, off: 2, title: 'Foundations', sub: 'A village of 1,000 people and a ₹35 L budget. Farms are free (up to a limit); everything else costs money. Plan for the children who are coming.' },
+    1: { size: 10, off: 2, title: 'Foundations', sub: 'A village of 1,000 people and a ₹50 L budget. Farms are free (up to a limit); everything else costs money. Plan for the children who are coming.' },
     2: { size: 12, off: 1, title: 'Grow the City', sub: 'Spend what your city earned. Homes, clean energy, roads, schools, upgrades. The land has grown 1.5×.' },
     3: { size: 15, off: 0, title: 'Plan for the Future', sub: 'The children of Level 1 are adults now. Jobs, clean industry, forests and pollution control decide the next centuries.' },
   };
   // checkpoint pauses, in years from the start of each jump
   const PAUSES = { jump2: [7, 14, 21, 28, 35, 43], final: [20, 60, 110, 170, 240, 320] };
   // Level 1: a fixed budget; farms are free but capped; one small coal plant at most
-  const L1_BUDGET = 3500;                       // ₹35 L
+  const L1_BUDGET = 5000;                       // ₹50 L
   const L1_CAPS = { foodFarm: { n: 10 }, cashFarm: { n: 3 }, coalPlant: { n: 1, blocks: 2 }, nuclear: { n: 1, blocks: 2 }, goldFactory: { n: 1 }, mineralMine: { n: 1 } };
   const L1_FREE = { foodFarm: true, cashFarm: true };
   // score weights for the three rounds (what teams built in Level 1, 2 and 3)
-  const ERA_W = { 1: 0.3, 2: 0.35, 3: 0.35 };
+  const ERA_W = { 1: 0.2, 2: 0.4, 3: 0.4 };
   const CAP_YEARS = 500;
 
   // ---------- RNG ----------
@@ -136,78 +136,78 @@
   const ASK = { label: 'Ask the neighbours for help', detail: 'What they send depends on how you treated them when they needed help.', ask: true };
   const EVENTS = {
     'monsoon-failure': { title: 'The monsoon fails', text: 'The clouds came and went without rain. Wells are dropping and the fields are cracking.',
-      impact: { rainPct10y: -40 }, impactYears: 3, help: { water: 5000, food: 1500 }, helpText: 'water tankers and grain',
+      impact: { rainPct10y: -40, waterPct: -35, foodStorePct: -20 }, impactYears: 3, help: { water: 5000, food: 1500 }, helpText: 'water tankers and grain',
       choices: [
-        { label: 'Truck in water', detail: 'Buy water from far away. Expensive, but the taps keep running.', effects: { money: -400, water: 3000 }, news: 'Water tankers line the highway for weeks' },
+        { label: 'Truck in water', need: { money: 400 }, detail: 'Buy water from far away. Expensive, but the taps keep running.', effects: { money: -400, water: 3000 }, news: 'Water tankers line the highway for weeks' },
         { label: 'Pump the groundwater', detail: 'Free water now from deep wells. Nobody knows how long the wells will last.', effects: { water: 4000 }, later: [{ key: 'rainPct10y', pct: -15, years: 30 }], flag: 'groundwater', news: 'Borewell rigs drill day and night' },
         { label: 'Ration water', idle: true, detail: 'Strict limits for everyone. Crops and people suffer, the budget does not.', effects: { foodPct10y: -15, deathsPct10y: 10 }, news: 'Two buckets a day: the new rule on every street' },
         ASK ] },
     'heatwave': { title: 'Heatwave', text: 'Forty-seven degrees for three weeks. Fans run day and night and the old are suffering.',
-      impact: { deathsPct10y: 25 }, impactYears: 3, help: { deathsPct10y: -15 }, helpText: 'doctors and cooling equipment',
+      impact: { deathsPct10y: 25, killPct: 1.5, waterPct: -15 }, impactYears: 3, help: { deathsPct10y: -15 }, helpText: 'doctors and cooling equipment',
       choices: [
-        { label: 'Open cooling centres', detail: 'Air-cooled halls for the elderly. Costs money and power.', effects: { money: -300, energyPct10y: -10, deathsPct10y: -10 }, news: 'Cooling halls packed with grandparents and card games' },
-        { label: 'Shut factories in the afternoon', detail: 'Less heat and smoke in the hottest hours. Less income for years.', effects: { incomePct10y: -20, deathsPct10y: -8 }, news: 'Sirens at noon: factories shut for the hottest hours' },
+        { label: 'Open cooling centres', protect: 0.6, detail: 'Air-cooled halls for the elderly. Costs money and power.', effects: { money: -300, energyPct10y: -10, deathsPct10y: -10 }, news: 'Cooling halls packed with grandparents and card games' },
+        { label: 'Shut factories in the afternoon', protect: 0.4, detail: 'Less heat and smoke in the hottest hours. Less income for years.', effects: { incomePct10y: -20, deathsPct10y: -8 }, news: 'Sirens at noon: factories shut for the hottest hours' },
         { label: 'Keep the factories running', idle: true, detail: 'No cost now. Every running factory adds heat and smoke to the streets.', effects: { deathsPct10y: 10, pollution: 5 }, later: [{ key: 'deathsPct10y', pct: 5, years: 15 }], factoryHeat: true, flag: 'heatFactories', news: 'Chimneys smoke on through the heatwave' } ] },
     'disease-outbreak': { title: 'Disease outbreak', text: 'A fever is spreading fastest through the crowded lanes. Hospitals are filling up.',
-      impact: { deathsPct10y: 30 }, impactYears: 3, help: { deathsPct10y: -20 }, helpText: 'doctors and medicine',
+      impact: { deathsPct10y: 30, killPct: 2, incomePct10y: -10 }, impactYears: 3, help: { deathsPct10y: -20 }, helpText: 'doctors and medicine',
       choices: [
-        { label: 'Free treatment', detail: 'The city pays for every patient. Expensive, saves lives.', effects: { money: -500, deathsPct10y: -15 }, news: 'Queues at free clinics stretch around the block' },
-        { label: 'Lockdown', detail: 'Close markets and factories for a while. Fewer deaths, much less income.', effects: { incomePct10y: -30, deathsPct10y: -12 }, news: 'Empty markets as the city stays home' },
+        { label: 'Free treatment', protect: 0.6, detail: 'The city pays for every patient. Expensive, saves lives.', effects: { money: -500, deathsPct10y: -15 }, news: 'Queues at free clinics stretch around the block' },
+        { label: 'Lockdown', protect: 0.5, detail: 'Close markets and factories for a while. Fewer deaths, much less income.', effects: { incomePct10y: -30, deathsPct10y: -12 }, news: 'Empty markets as the city stays home' },
         { label: 'Wait it out', idle: true, detail: 'No cost now. The fever runs its course.', effects: {}, news: 'Fever season: every family knows someone ill' },
         ASK ] },
     'fuel-price-crash': { title: 'Fuel and metal prices crash', text: 'World prices for coal and gold have collapsed. Mines and factories are earning far less.',
-      impact: { incomePct10y: -30 }, impactYears: 5, help: { incomePct10y: 20 }, helpText: 'a trade deal at fair prices',
+      impact: { incomePct10y: -30, money: -150 }, impactYears: 5, help: { incomePct10y: 20 }, helpText: 'a trade deal at fair prices',
       choices: [
         { label: 'Keep mines running', idle: true, detail: 'Keep every job. Income stays low for years.', effects: {}, news: 'Mines keep digging, for less and less' },
         { label: 'Retrain workers', detail: 'Pay to retrain miners for other work. Costs money, income recovers.', effects: { money: -350, incomePct10y: 15 }, news: 'Miners back in classrooms, learning new trades' },
         { label: 'Sell coal reserves', detail: 'Sell coal rights cheap for quick cash. Pollution from the buyers drifts in.', effects: { money: 400, pollution: 6 }, flag: 'coalDependent', news: 'Coal trucks roll out of town at bargain prices' } ] },
     'flood': { title: 'Flash flood', text: 'A cloudburst upstream. The river has burst its banks and fields are under water.',
-      impact: { foodPct10y: -15 }, impactYears: 3, help: { food: 1500, money: 200 }, helpText: 'volunteers and grain',
+      impact: { foodPct10y: -15, foodStorePct: -40, money: -150, killPct: 0.5, destroy: { types: ['foodFarm', 'cashFarm', 'hut', 'house'], pct: 12 } }, impactYears: 3, help: { food: 1500, money: 200 }, helpText: 'volunteers and grain',
       choices: [
         { label: 'Rebuild fast', detail: 'Emergency repairs. Costs money, food recovers quickly.', effects: { money: -300, foodPct10y: 12 }, news: 'Sandbags and shovels: the city digs out' },
         { label: 'Let fields recover', idle: true, detail: 'No spending. Harvests are poor for years.', effects: { foodPct10y: -10 }, news: 'Silt-covered fields lie empty' },
         ASK ] },
     // more crises (one or two per team, random)
     'cyclone': { title: 'Cyclone', text: 'A cyclone is two days away. Winds of 180 km/h will tear through fields, roofs and power lines.',
-      impact: { foodPct10y: -20, deathsPct10y: 12, money: -200 }, impactYears: 3, help: { money: 400, food: 1500 }, helpText: 'rescue teams, tarpaulins and grain',
+      impact: { foodPct10y: -20, deathsPct10y: 12, money: -200, killPct: 1, destroy: { types: ['solar', 'wind', 'hut', 'house', 'community', 'foodFarm', 'cashFarm'], pct: 15 } }, impactYears: 3, help: { money: 400, food: 1500 }, helpText: 'rescue teams, tarpaulins and grain',
       choices: [
-        { label: 'Evacuate everyone', detail: 'Buses and shelters for the whole city. Expensive, saves lives.', effects: { money: -300, deathsPct10y: -10 }, news: 'Long lines of buses head inland' },
+        { label: 'Evacuate everyone', protect: 0.75, detail: 'Buses and shelters for the whole city. Expensive, saves lives.', effects: { money: -300, deathsPct10y: -10 }, news: 'Long lines of buses head inland' },
         { label: 'Shelter in place', idle: true, detail: 'No cost now. People ride it out at home.', effects: {}, news: 'Doors boarded up across the city' },
         ASK ] },
     'locusts': { title: 'Locust swarm', text: 'A swarm of locusts the size of a city is eating its way across the fields.',
-      impact: { foodPct10y: -35 }, impactYears: 2, help: { food: 2500 }, helpText: 'grain from their stores',
+      impact: { foodPct10y: -35, foodStorePct: -30 }, impactYears: 2, help: { food: 2500 }, helpText: 'grain from their stores',
       choices: [
         { label: 'Spray pesticides', detail: 'Kills the swarm fast. The poison runs into the river and the soil.', effects: { money: -150, foodPct10y: 20, pollution: 6 }, later: [{ key: 'deathsPct10y', pct: 4, years: 15 }], flag: 'pesticides', news: 'Crop dusters spray the fields white' },
         { label: 'Nets, traps and birds', detail: 'Slower and more expensive, but nothing is poisoned.', effects: { money: -300, foodPct10y: 12 }, news: 'Villagers drive the swarm into nets at dawn' },
         { label: 'Let it pass', idle: true, detail: 'No cost now. The harvest is lost.', effects: {}, news: 'Bare stalks where the wheat stood' },
         ASK ] },
     'chemical-leak': { title: 'Chemical leak', text: 'A factory tank has burst. Toxic waste is pouring into the river that the city drinks from.',
-      impact: { deathsPct10y: 15, water: -2000 }, impactYears: 3,
+      impact: { deathsPct10y: 15, waterPct: -25, pollution: 8, killPct: 0.5 }, impactYears: 3,
       choices: [
-        { label: 'Shut it down and clean up', detail: 'Close the factory for months and pay for the clean-up.', effects: { money: -350, incomePct10y: -10, deathsPct10y: -12 }, news: 'Clean-up crews in white suits line the riverbank' },
+        { label: 'Shut it down and clean up', protect: 0.6, detail: 'Close the factory for months and pay for the clean-up.', effects: { money: -350, incomePct10y: -10, deathsPct10y: -12 }, news: 'Clean-up crews in white suits line the riverbank' },
         { label: 'Fine the company', detail: 'They pay the city. The waste stays in the river for a while.', effects: { money: 200, pollution: 4 }, news: 'Factory fined; the river stays brown' },
         { label: 'Keep it quiet', idle: true, detail: 'No cost now. People drink the water and nobody knows why they fall ill.', effects: {}, later: [{ key: 'deathsPct10y', pct: 6, years: 15 }], flag: 'coverUp', news: 'Officials say the water is fine' } ] },
     'blackout': { title: 'The grid fails', text: 'On the hottest night of the year the power grid collapses. Hospitals, pumps and factories go dark.',
-      impact: { incomePct10y: -20, deathsPct10y: 6 }, impactYears: 2, help: { incomePct10y: 15 }, helpText: 'power from their grid',
+      impact: { incomePct10y: -20, deathsPct10y: 6, money: -150, killPct: 0.3 }, impactYears: 2, help: { incomePct10y: 15 }, helpText: 'power from their grid',
       choices: [
         { label: 'Rolling power cuts', idle: true, detail: 'Share the little power there is. Factories lose hours.', effects: { incomePct10y: -10 }, news: 'Four hours of power a day, by turns' },
-        { label: 'Diesel generators', detail: 'Hire generators for every ward. Costs money and fills the air with smoke.', effects: { money: -250, pollution: 6 }, news: 'Generators roar on every street corner' },
+        { label: 'Diesel generators', need: { money: 250 }, detail: 'Hire generators for every ward. Costs money and fills the air with smoke.', effects: { money: -250, pollution: 6 }, news: 'Generators roar on every street corner' },
         ASK ] },
     // neighbours in trouble: help now, or keep what you have
     'neighbour-water': { title: 'Neighbour needs water', text: 'A drought has hit the town downstream. Their wells are dry and they ask to share your reservoir.', neighbour: true,
       choices: [
-        { label: 'Share water', detail: 'Give them 2,000 water. Your reservoir drops now; trade with them grows.', effects: { water: -2000 }, later: [{ key: 'incomePct10y', pct: 6, years: 25 }], goodwill: 2, news: 'Tankers head downstream with your water' },
-        { label: 'Sell it at a high price', detail: 'They pay well, and they will not forget the price.', effects: { water: -2000, money: 300 }, later: [{ key: 'incomePct10y', pct: -5, years: 15 }], goodwill: -1, news: 'Neighbours pay dearly for your water' },
+        { label: 'Share water', need: { water: 2000 }, detail: 'Give them 2,000 water. Your reservoir drops now; trade with them grows.', effects: { water: -2000 }, later: [{ key: 'incomePct10y', pct: 6, years: 25 }], goodwill: 2, news: 'Tankers head downstream with your water' },
+        { label: 'Sell it at a high price', need: { water: 2000 }, detail: 'They pay well, and they will not forget the price.', effects: { water: -2000, money: 300 }, later: [{ key: 'incomePct10y', pct: -5, years: 15 }], goodwill: -1, news: 'Neighbours pay dearly for your water' },
         { label: 'Refuse', detail: 'Keep every drop for your own people. They may stop trading with you.', effects: {}, later: [{ key: 'incomePct10y', pct: -10, years: 25 }], goodwill: -2, news: 'Neighbours turned away at the gates' } ] },
     'neighbour-refugees': { title: 'Families flee a flood', text: 'A flood has destroyed the neighbouring town. 150 families are at your border asking for shelter.', neighbour: true,
       choices: [
         { label: 'Take them in', detail: '150 more people to house and feed. Most are adults who can work.', effects: { people: 150 }, later: [{ key: 'incomePct10y', pct: 6, years: 25 }], goodwill: 3, news: 'Tents go up as the city welcomes flood families' },
-        { label: 'Send supplies, not shelter', detail: 'Send food and tents to their camp. Costs money and food.', effects: { money: -200, food: -800 }, later: [{ key: 'incomePct10y', pct: 3, years: 20 }], goodwill: 1, news: 'Supply trucks roll to the camp across the border' },
+        { label: 'Send supplies, not shelter', need: { food: 800, money: 200 }, detail: 'Send food and tents to their camp. Costs money and food.', effects: { money: -200, food: -800 }, later: [{ key: 'incomePct10y', pct: 3, years: 20 }], goodwill: 1, news: 'Supply trucks roll to the camp across the border' },
         { label: 'Close the border', detail: 'Nothing changes for your city now. They may stop trading with you.', effects: {}, later: [{ key: 'incomePct10y', pct: -10, years: 25 }], goodwill: -2, news: 'Border closed; families wait in the rain' } ] },
     'neighbour-food': { title: 'Famine next door', text: 'Pests destroyed the harvest in the next town. Children are going hungry and they ask for grain.', neighbour: true,
       choices: [
-        { label: 'Send grain', detail: 'Give 1,500 food from your stores (or money if your stores are empty).', effects: { food: -1500 }, foodOrMoney: true, later: [{ key: 'incomePct10y', pct: 6, years: 25 }], goodwill: 2, news: 'Grain carts head out at dawn' },
-        { label: 'Sell grain at market price', detail: 'Fair trade: they pay, you lose the food.', effects: { food: -1500, money: 150 }, goodwill: 0, news: 'Grain sold across the border' },
+        { label: 'Send grain', need: { food: 1500 }, detail: 'Give 1,500 food from your stores.', effects: { food: -1500 }, later: [{ key: 'incomePct10y', pct: 6, years: 25 }], goodwill: 2, news: 'Grain carts head out at dawn' },
+        { label: 'Sell grain at market price', need: { food: 1500 }, detail: 'Fair trade: they pay, you lose the food.', effects: { food: -1500, money: 150 }, goodwill: 0, news: 'Grain sold across the border' },
         { label: 'Refuse', detail: 'Your own people come first. They may stop trading with you.', effects: {}, later: [{ key: 'incomePct10y', pct: -10, years: 25 }], goodwill: -2, news: 'Granary doors stay shut' } ] },
     // choices now, consequences later
     'baby-boom': { title: 'Baby boom', text: 'Maternity wards are full. Every street has a new cradle.',
@@ -311,7 +311,55 @@
     return { mul: clamp(m, 0.4, 2.2), notes };
   }
   // what happens if a team does not decide in time: the do-nothing choice
-  function defaultChoice(id) { const ch = EVENTS[id].choices; const i = ch.findIndex(c => c.idle); if (i >= 0) return i; for (let k = ch.length - 1; k >= 0; k--) if (!ch[k].ask) return k; return 0; }
+  // A choice the city cannot afford is shown but cannot be picked (no water to give, no grain in store).
+  // A neighbour asking for something you do not have gets an honest answer instead.
+  const CANNOT = { label: 'We have nothing to spare', detail: 'Tell them honestly. They understand, but nothing changes for either town.', effects: {}, goodwill: 0, cannot: true, news: 'The council explains it has nothing left to give' };
+  function needWhy(state, need) {
+    if (!need) return null;
+    if (need.water && state.water < need.water) return 'You only have ' + Math.round(state.water).toLocaleString('en-IN') + ' water in the reservoir.';
+    if (need.food && state.foodStore < need.food) return 'You only have ' + Math.round(state.foodStore).toLocaleString('en-IN') + ' food in store.';
+    if (need.money && state.money < need.money) return 'Not enough money (needs ' + fmtMoney(need.money) + ').';
+    return null;
+  }
+  function choicesFor(state, id) {
+    const def = EVENTS[id];
+    const list = def.choices.map(c => Object.assign({}, c, { disabled: needWhy(state, c.need) }));
+    if (def.neighbour && list.filter(c => (c.goodwill || 0) > 0 && !c.disabled).length === 0) list.splice(list.length - 1, 0, Object.assign({}, CANNOT));
+    return list;
+  }
+  function defaultChoice(id, state) {
+    const ch = state ? choicesFor(state, id) : EVENTS[id].choices;
+    const i = ch.findIndex(c => c.idle && !c.disabled); if (i >= 0) return i;
+    for (let k = ch.length - 1; k >= 0; k--) if (!ch[k].ask && !ch[k].disabled) return k;
+    return 0;
+  }
+  // Swap an event that makes no sense for this city (a coal seam with no coal plant, a strike with no
+  // factories, a neighbour asking for water you do not have) for one that does.
+  function eventMakesSense(state, id) {
+    const bl = Object.values(state.buildings), has = t => bl.some(b => t.includes(b.type));
+    if (id === 'more-coal') return has(['coalPlant']);
+    if (id === 'factory-strike' || id === 'chemical-leak') return has(['coalPlant', 'goldFactory', 'mineralMine', 'itPark']);
+    if (id === 'good-harvest' || id === 'locusts') return has(['foodFarm', 'cashFarm']);
+    if (id === 'neighbour-water') return state.water >= 2000;
+    if (id === 'neighbour-food') return state.foodStore >= 1500;
+    if (id === 'new-technology') return has(['solar', 'wind']);
+    return true;
+  }
+  // For the stop at schedule[slot]: if its event makes no sense now, use one that does, either an event
+  // not scheduled yet or a later one in this team's schedule (the two swap places, so nothing repeats).
+  function relevantEvent(state, id, slot) {
+    if (eventMakesSense(state, id)) return id;
+    const done = new Set((state.eventsDone || []).map(e => e.id));
+    const sched = state.schedule || [];
+    const pool = NEIGHBOUR.includes(id) ? NEIGHBOUR : NEWC.includes(id) ? NEWC.concat(OTHERS) : OTHERS.concat(NEWC);
+    const ok = k => k !== id && !done.has(k) && eventMakesSense(state, k);
+    const fresh = pool.find(k => ok(k) && !sched.includes(k));
+    const pos = slot != null ? slot : sched.indexOf(id);
+    if (fresh) { if (pos >= 0) sched[pos] = fresh; return fresh; }
+    const later = pool.find(k => ok(k) && sched.indexOf(k) > pos);
+    if (later && pos >= 0) { const j = sched.indexOf(later); sched[j] = id; sched[pos] = later; return later; }
+    return id;   // nothing better: keep it (choices it cannot afford stay disabled)
+  }
   function goodwillNote(state) {
     const g = state.goodwill || 0, h = state.helpLog || [];
     const last = h.length ? h[h.length - 1] : null;
@@ -324,8 +372,9 @@
     state.flags = state.flags || {}; state.helpLog = state.helpLog || [];
     const sev = def.impact ? severity(state, id) : { mul: 1, notes: [] };
     const notes = sev.notes.slice();
-    if (def.impact && def.choices.some(c => c.ask)) notes.push(goodwillNote(state));
-    return { id, title: def.title, text: def.text, notes, mul: sev.mul, shock: SHOCKS.includes(id) || id === 'flood', neighbour: !!def.neighbour, choices: def.choices };
+    const choices = choicesFor(state, id);
+    if (def.impact && choices.some(c => c.ask)) notes.push(goodwillNote(state));
+    return { id, title: def.title, text: def.text, notes, mul: sev.mul, shock: SHOCKS.includes(id) || id === 'flood' || NEWC.includes(id), neighbour: !!def.neighbour, choices, expect: def.impact ? describeImpact(scaleEff(def.impact, sev.mul), def.impactYears) : [] };
   }
 
   // ---------- Map generation ----------
@@ -394,7 +443,7 @@
       v: 2, seed, team: team || '', level: 1, year: 0, phase: 'plan',
       tiles, deposits, buildings: {}, bid: 0,
       kids: 300 * 1, adults: 600, elders: 100, pop: 1000,
-      money: L1_BUDGET, water: 600 * K, foodStore: 0, pollution: 12, rain: 1,
+      money: L1_BUDGET, water: 800 * K, foodStore: 0, pollution: 12, rain: 1,
       mods: [], schedule, eventsDone: [], tally: null, goodwill: 0, helpLog: [], flags: {}, memory: [],
       history: [], log: [], sdgSum: null, sdgYears: 0, streak: { short: 0, pol: 0 },
       dead: null, finalStart: null, jumpStart: null, debt: false,
@@ -420,11 +469,12 @@
     return state;
   }
 
-  function addBuilding(state, type, tiles, initial) {
+  function addBuilding(state, type, tiles, initial, workers) {
     const id = 'b' + (++state.bid);
     const d = B[type];
     const n = d.perBlock ? tiles.length : 1;
-    state.buildings[id] = { id, type, tiles, workers: (d.max || 0) * n, built: state.year, initial: !!initial, up: {} };
+    const crew = workers != null && d.min ? clamp(Math.round(workers), d.min * n, d.max * n) : (d.max || 0) * n;
+    state.buildings[id] = { id, type, tiles, workers: crew, built: state.year, initial: !!initial, up: {} };
     for (const i of tiles) state.tiles[i].b = id;
     return id;
   }
@@ -528,8 +578,32 @@
     if (!c.ok) return c;
     state.money -= c.cost;
     state.water -= c.wB;
-    const id = addBuilding(state, type, c.fp);
+    const id = addBuilding(state, type, c.fp, false, opt && opt.workers);
     return { ok: true, id, cost: c.cost };
+  }
+  // the team sets how many people work in a building (between its minimum and maximum crew)
+  function setWorkers(state, id, n) {
+    const b = state.buildings[id]; if (!b) return null;
+    const d = B[b.type]; if (!d.min) return null;
+    const k = d.perBlock ? b.tiles.length : 1;
+    b.workers = clamp(Math.round(n), d.min * k, d.max * k);
+    return b.workers;
+  }
+  // during the years that pass, people who come of working age join understaffed buildings (food first)
+  function autoAssign(state, f) {
+    let spare = f.unemployed;
+    if (spare <= 0) return 0;
+    const prio = b => { const d = B[b.type]; return b.type === 'foodFarm' ? 0 : d.gen ? 1 : b.type === 'waterPlant' ? 2 : (b.type === 'hospital' || b.type === 'granary' || b.type === 'battery') ? 3 : b.type === 'school' ? 4 : 5; };
+    const list = Object.values(state.buildings).filter(b => B[b.type].min && !b._dead).sort((a, b) => prio(a) - prio(b) || (+a.id.slice(1)) - (+b.id.slice(1)));
+    let moved = 0;
+    for (const b of list) {
+      if (spare <= 0) break;
+      const d = B[b.type], k = d.perBlock ? b.tiles.length : 1, mx = d.max * k;
+      if (b.workers >= mx) continue;
+      const add = Math.min(spare, mx - b.workers);
+      b.workers += add; spare -= add; moved += add;
+    }
+    return moved;
   }
   function demolish(state, id) {
     const b = state.buildings[id];
@@ -552,12 +626,13 @@
         b.tiles.forEach(j => { const t = state.tiles[j]; N4.forEach(([dx, dy]) => { const x = t.x + dx, y = t.y + dy; if (x < 0 || y < 0 || x >= WORLD || y >= WORLD) return; const k = idx(x, y), u = state.tiles[k]; if (u.t === d.on && !b.tiles.includes(k) && inLevel(state.level, u.x, u.y) && !cand.includes(k)) cand.push(k); }); });
         const free = cand.filter(k => !state.tiles[k].b).sort((p, q) => state.tiles[q].res - state.tiles[p].res);
         const blocked = cand.filter(k => state.tiles[k].b);
-        const cost = d.upCost;
+        // each extra block costs more than the last: 1.2x a new block's price, then 1.5x, then 1.8x
+        const cost = Math.round(d.cost * (0.9 + 0.3 * n));
         let why = locked;
         if (!why && !free.length) why = blocked.length ? 'The next ' + labelFor(d.on) + ' block has a building on it. Demolish it first.' : 'No more ' + labelFor(d.on) + ' blocks next to this factory';
         if (!why && cost > state.money + 1e-9) why = 'Not enough money (needs ' + fmtMoney(cost) + ')';
         out.push({ kind: 'block', ok: !why, why, cost, tile: free[0], blocked, level: n, max: d.maxBlocks,
-          gain: { gen: (d.gen || 0), econ: d.econ || 0, jobs: d.max || 0, pol: d.pol || 0 } });
+          gain: { gen: (d.gen || 0), econ: d.econ || 0, jobs: d.max || 0, minJobs: d.min || 0, pol: d.pol || 0, use: d.use || 0, water: d.wR || 0, energy: d.energy || 0 } });
       }
     }
     if (HOUSING.includes(b.type)) {
@@ -578,8 +653,10 @@
     const b = state.buildings[id];
     state.money -= opt.cost;
     if (kind === 'block') {
+      // the crew grows in the same proportion as the plant
+      const n0 = b.tiles.length;
       b.tiles.push(opt.tile); state.tiles[opt.tile].b = id;
-      b.workers += B[b.type].max;
+      b.workers = Math.round(b.workers * (n0 + 1) / n0);
       return { ok: true, tile: opt.tile, cost: opt.cost };
     }
     b.up[kind] = true;
@@ -620,11 +697,10 @@
     // staffing: power, food, water, health/storage, schools, everything else
     const prio = b => { const d = B[b.type]; return b.type === 'foodFarm' ? 0 : d.gen ? 1 : b.type === 'waterPlant' ? 2 : (b.type === 'hospital' || b.type === 'granary' || b.type === 'battery') ? 3 : b.type === 'school' ? 4 : 5; };
     const staffed = bl.filter(b => B[b.type].min).sort((a, b) => prio(a) - prio(b) || (+a.id.slice(1)) - (+b.id.slice(1)));
-    // workers freed by a demolition wait (hold) until the player says where they go
-    let left = Math.max(0, workforce - (state.hold || 0)), want = 0, jobs = 0, unstaffed = 0;
+    let left = workforce, want = 0, jobs = 0, unstaffed = 0;
     const debtMul = state.debt ? 0.85 : 1;
     bl.forEach(b => { b._road = nearRoad(b); b._live = blocksOf(b); if (!B[b.type].min) { b._eff = 1; b._w = 0; } });
-    const open = [], live = [];
+    const live = [];
     staffed.forEach(b => {
       const d = B[b.type];
       if (d.perBlock) { b._live = b.tiles.filter(j => T[j].res > 0).length; b._dead = b._live === 0; } else b._dead = false;
@@ -634,24 +710,17 @@
       b._mn = mn; b._mx = clamp(b.workers, mn, mx); want += b._mx;
       live.push(b);
     });
-    // pass 0: buildings the player gave workers to are staffed first
+    // pass 1: every building gets its minimum crew, in priority order (food, power, water, services, schools, the rest)
+    const open = [];
+    live.sort((a, b) => prio(a) - prio(b) || (+a.id.slice(1)) - (+b.id.slice(1)));
     live.forEach(b => {
-      if (!(b.pin > 0)) return;
-      const w = clamp(b.pin, b._mn, b._mx);
-      if (left < w) return;
-      left -= w; b._w = w; b._pinned = true; open.push(b);
-    });
-    // pass 1: every other building gets its minimum, in priority order
-    live.forEach(b => {
-      if (b._w) return;
-      b._pinned = false;
       if (left < b._mn) { unstaffed++; return; }
       left -= b._mn; b._w = b._mn; open.push(b);
     });
-    open.sort((a, b) => prio(a) - prio(b) || (+a.id.slice(1)) - (+b.id.slice(1)));
-    // pass 2: spare workers go to open buildings in priority order, up to each one's limit
+    // pass 2: then up to the number of workers the team chose for it (b.workers)
     for (const b of open) { const add = Math.min(left, b._mx - b._w); b._w += add; left -= add; }
-    open.forEach(b => { jobs += b._w; const mx = B[b.type].max * (B[b.type].perBlock ? b.tiles.length : 1); b._eff = (0.6 + 0.4 * (b._w - b._mn) / Math.max(1, mx - b._mn)) * debtMul; });
+    // output is proportional to the crew: half the maximum crew = half the output
+    open.forEach(b => { jobs += b._w; const mx = B[b.type].max * (B[b.type].perBlock ? b.tiles.length : 1); b._eff = (b._w / Math.max(1, mx)) * debtMul; });
     const unemployed = Math.max(0, workforce - jobs);
     // factory waste reaching the river: treatment plants take in 160 units of waste each
     const DIRTY = { coalPlant: 7.5, goldFactory: 8, mineralMine: 6, itPark: 4, cashFarm: 1, nuclear: 0.8 };
@@ -685,7 +754,7 @@
 
     // production
     const foodPct = 1 + modPct(state, 'foodPct10y') / 100, incPct = 1 + modPct(state, 'incomePct10y') / 100;
-    let food = 0, econ = 0, waterIn = 0, waterUse = 0, emis = pop * 0.05, absorb = 0, cap = 0, edu = 0, health = 0, foodCap = 0, maint = 0, waterCap = 800 * K;
+    let food = 0, econ = 0, waterIn = 0, waterUse = 0, emis = pop * 0.05, absorb = 0, cap = 0, edu = 0, health = 0, foodCap = 0, maint = 0, waterCap = 1000 * K;
     let econExtract = 0, rwhWater = 0;
     bl.forEach(b => {
       const d = B[b.type];
@@ -698,7 +767,7 @@
       if (d.cap) cap += d.cap;
       if (d.food) food += d.food * eff * roadMul * (0.5 + 0.5 * Math.min(1.2, rain)) * foodPct;
       if (d.econ) { const e = d.econ * n * eff * roadMul * incPct; econ += e; if (d.on) econExtract += e; }
-      if (d.wR && b._eff > 0) waterUse += d.wR * nAll;
+      if (d.wR && b._eff > 0) waterUse += d.wR * nAll * 0.85;
       if (d.waterIn) waterIn += d.waterIn * eff;
       if (d.waterCap) waterCap += d.waterCap;
       if (d.pol && b._eff > 0) emis += d.pol * n * (d.min ? Math.max(0.5, eff) : 1);
@@ -711,7 +780,7 @@
     const river = land.filter(t => t.t === 'river').length;
     absorb += emptyGrass * 6;
     waterIn += (50 + river * 25) * K * rain;
-    waterUse += pop * 1.0 * dm;
+    waterUse += pop * 0.85 * dm;
     const eduCov = pop ? Math.min(1, edu / pop) : 0;
     const healthCov = pop ? Math.min(1, health / pop) : 0;
     econ *= 1 + 0.25 * eduCov;
@@ -726,7 +795,7 @@
     const connected = structures.length ? structures.filter(b => b._road).length / structures.length : 0;
 
     return {
-      riverDirty, forestShare, wildShare, dugShare, pop, workforce, jobs, unemployed, employment: workforce ? Math.min(1, jobs / workforce) : 1, staffRatio: want ? Math.min(1, jobs / want) : 1, unstaffed,
+      greenBlocks, riverDirty, forestShare, wildShare, dugShare, pop, workforce, jobs, unemployed, employment: workforce ? Math.min(1, jobs / workforce) : 1, staffRatio: want ? Math.min(1, jobs / want) : 1, unstaffed,
       food, foodDemand: pop, water: waterIn, waterDemand: waterUse, waterCap, rwhWater,
       gen, eDemand, energyR, cleanShare: gen ? (genClean + 0.7 * genNuke) / gen : 0,
       econ, costs, net: econ - costs, econExtract, tax, foodSales,
@@ -776,7 +845,9 @@
   // ---------- One simulated year ----------
   // mode: 'grow' (Level 1→2: people change, no game over) or 'dyn' (game-over rules apply)
   function step(state, mode) {
-    const f = flows(state);
+    let f = flows(state);
+    // people who came of working age join understaffed buildings automatically
+    if (autoAssign(state, f) > 0) f = flows(state);
     state.rain = f.rain;
     state.money += f.net;
     state.debt = state.money < 0;
@@ -784,6 +855,10 @@
     const wAvail = state.water + f.water;
     const waterR = f.waterDemand ? Math.min(1.5, wAvail / f.waterDemand) : 1;
     state.water = Math.max(0, Math.min(f.waterCap, wAvail - f.waterDemand));
+    // the monsoon refills part of the empty reservoir every year (less in a dry year)
+    const refill = (f.waterCap - state.water) * 0.2 * Math.min(1, f.rain);
+    state.water = Math.min(f.waterCap, state.water + refill);
+    state.tally.refill = (state.tally.refill || 0) + refill;
     // food with storage
     let foodR;
     if (f.food >= f.foodDemand) {
@@ -875,7 +950,9 @@
       energy: 100 * Math.min(1, f.energyR) * (0.5 + 0.5 * f.cleanShare),
       work: 100 * Math.min(1, f.employment / 0.9) * (state.money >= 0 ? 1 : 0.8),
       infra: 100 * f.connected,
-      cities: 100 * (0.7 * Math.min(1, f.cap / pop) + 0.3 * Math.min(1, f.green / 0.3)) * (1 - clamp(per('slums') * 40, 0, 1)),
+      // SDG 11, as the UN measures it: safe homes for everyone (11.1), streets that connect them (11.2)
+      // and public green space (11.7): one park or forest block for every 500 people
+      cities: 100 * (0.5 * Math.min(1, f.cap / pop) + 0.25 * f.connected + 0.25 * Math.min(1, (f.greenBlocks || 0) / Math.max(1, pop / 500))),
       consume: 100 * (1 - (f.econ ? f.econExtract / f.econ : 0) * 0.7) * (f.foodCap > 0 ? 1 : 0.85) * (f.econ > 0 ? 1 : 0.5),
       // clean air AND clean energy actually delivered (a city with no power gets half)
       climate: 100 * (1 - P / 100) * (0.5 + 0.5 * clean),
@@ -935,7 +1012,8 @@
     return list.map((y, k) => ({ year: base + y, eventId: state.schedule[off + k], n: off + k }));
   }
   function applyEffects(state, eff, r, years) {
-    if (!eff) return;
+    const lost = [];
+    if (!eff) return lost;
     r = r || rng((state.seed ^ state.year * 7919) >>> 0);
     for (const [k, v] of Object.entries(eff)) {
       if (k === 'money') state.money += v;
@@ -943,7 +1021,15 @@
       else if (k === 'food') state.foodStore = Math.max(0, state.foodStore + v);
       else if (k === 'people') { const ad = Math.round(v * 0.7), kd = v - ad; state.adults += ad; state.kids += kd; state.pop = state.kids + state.adults + state.elders; }
       else if (k === 'pollution') state.pollution = clamp(state.pollution + v, 0, 100);
-      else if (/Pct10y$/.test(k)) state.mods.push({ key: k, pct: v, until: state.year + (years || 10) });
+      else if (/Pct10y$/.test(k)) state.mods.push({ key: k, pct: v, until: state.year + (years || 10), added: state.year });
+      else if (k === 'waterPct') state.water = Math.max(0, state.water * (1 + v / 100));
+      else if (k === 'foodStorePct') state.foodStore = Math.max(0, state.foodStore * (1 + v / 100));
+      else if (k === 'killPct') killNow(state, v);
+      else if (k === 'destroy') {
+        const exposed = Object.values(state.buildings).filter(b => v.types.includes(b.type));
+        let n = Math.round(exposed.length * v.pct / 100);
+        while (n-- > 0 && exposed.length) { const b = exposed.splice(Math.floor(r() * exposed.length), 1)[0]; lost.push(B[b.type].name); demolish(state, b.id); }
+      }
       else if (k === 'forestBlocks') {
         if (v > 0) {
           const spots = levelTiles(state).filter(t => t.t === 'grass' && !t.b);
@@ -959,30 +1045,63 @@
         if (coal.length) coal.forEach(t => { t.res += v / coal.length; t.resMax = Math.max(t.resMax, t.res); });
       }
     }
+    return lost;
   }
   // The shock's impact (scaled by how ready the city is) always applies; then the chosen response.
   // Returns the choice plus an outcome line for the screen and the "What happened" card.
-  function scaleEff(eff, mul) { const o = {}; for (const [k, v] of Object.entries(eff || {})) o[k] = typeof v === 'number' ? Math.round(v * mul) : v; return o; }
+  function scaleEff(eff, mul) {
+    const o = {};
+    for (const [k, v] of Object.entries(eff || {})) o[k] = typeof v === 'number' ? v * mul : k === 'destroy' ? Object.assign({}, v, { pct: v.pct * mul }) : v;
+    return o;
+  }
+  const MOD_NAME = { foodPct10y: 'Food output', deathsPct10y: 'Death rate', incomePct10y: 'Income', rainPct10y: 'Rain', energyPct10y: 'Energy output', birthsPct10y: 'Births' };
+  // plain words for what a crisis will do (shown before choosing)
+  function describeImpact(eff, years) {
+    const out = [];
+    for (const [k, v] of Object.entries(eff)) {
+      if (MOD_NAME[k]) out.push(MOD_NAME[k] + ' ' + (v > 0 ? '+' : '−') + Math.abs(Math.round(v)) + '% for ' + years + ' years');
+      else if (k === 'killPct') out.push('about ' + v.toFixed(1) + '% of people at risk of dying now');
+      else if (k === 'waterPct') out.push('reservoir ' + Math.round(v) + '%');
+      else if (k === 'foodStorePct') out.push('stored food ' + Math.round(v) + '%');
+      else if (k === 'money') out.push((v < 0 ? '−' : '+') + fmtMoney(Math.abs(Math.round(v))) + ' in damage');
+      else if (k === 'pollution') out.push('pollution +' + Math.round(v));
+      else if (k === 'destroy') out.push('about ' + Math.round(v.pct) + '% of exposed buildings damaged');
+    }
+    return out;
+  }
+  // people die now (more of the old and the young)
+  function killNow(state, pct) {
+    if (!(pct > 0) || state.pop <= 0) return 0;
+    const w = { kids: 1.2, adults: 0.7, elders: 2.5 };
+    const tot = state.kids * w.kids + state.adults * w.adults + state.elders * w.elders;
+    const want = state.pop * pct / 100;
+    let dead = 0;
+    for (const g of ['kids', 'adults', 'elders']) { const n = Math.min(state[g], want * state[g] * w[g] / Math.max(1, tot)); state[g] -= n; dead += n; }
+    state.pop = state.kids + state.adults + state.elders;
+    return dead;
+  }
   function resolveEvent(state, eventId, choiceIndex, content) {
     const def = EVENTS[eventId]; if (!def) return null;
-    state.flags = state.flags || {}; state.memory = state.memory || []; state.helpLog = state.helpLog || []; state.goodwill = state.goodwill || 0;
+    state.flags = state.flags || {}; state.memory = state.memory || []; state.helpLog = state.helpLog || []; state.goodwill = state.goodwill || 0; state.marks = state.marks || [];
     const c = content && content[eventId];
     const title = (c && c.title) || def.title;
     const view = eventView(state, eventId);
-    const choice = def.choices[Math.max(0, Math.min(def.choices.length - 1, choiceIndex | 0))];
-    const label = (c && c.choices && c.choices[choiceIndex] && c.choices[choiceIndex].label) || choice.label;
-    let outcome = '', news = choice.news;
-    if (def.impact) applyEffects(state, scaleEff(def.impact, view.mul), null, def.impactYears);
+    const list = view.choices;
+    let k = Math.max(0, Math.min(list.length - 1, choiceIndex | 0));
+    if (list[k].disabled) k = defaultChoice(eventId, state);
+    const choice = list[k];
+    const label = (!choice.cannot && c && c.choices && c.choices[k] && c.choices[k].label) || choice.label;
+    let outcome = '', news = choice.news, protect = choice.protect || 0;
+    const before = { pop: state.pop, money: state.money, water: state.water, food: state.foodStore, pollution: state.pollution, n: Object.keys(state.buildings).length };
     let eff = Object.assign({}, choice.effects);
-    if (choice.foodOrMoney && state.foodStore < -(eff.food || 0)) { const short = -(eff.food || 0) - state.foodStore; eff.food = -state.foodStore; eff.money = (eff.money || 0) - Math.round(short * 0.2); }
     if (choice.factoryHeat) { const fac = runningFactories(state); eff.deathsPct10y = (eff.deathsPct10y || 0) + Math.min(25, 3 * fac); }
     if (choice.ask) {
       const g = state.goodwill, last = state.helpLog[state.helpLog.length - 1];
       if (g >= 2) {
-        eff = Object.assign({}, def.help); state.goodwill -= 1;
+        eff = Object.assign({}, def.help); state.goodwill -= 1; protect = 0.5;
         outcome = 'The neighbours you helped' + (last ? ' in year ' + last.year : '') + ' send ' + def.helpText + '.';
       } else if (g >= 0) {
-        eff = scaleEff(def.help, 0.4);
+        eff = scaleEff(def.help, 0.4); protect = 0.2;
         outcome = 'The neighbours send a little ' + def.helpText + '. They are not sure they can count on you.';
       } else {
         eff = {};
@@ -990,20 +1109,36 @@
       }
       news = outcome;
     }
+    // the crisis itself (how hard depends on the city), then the response
+    let died = 0, lost = [];
+    if (def.impact) {
+      const imp = scaleEff(def.impact, view.mul);
+      if (imp.killPct) { died = killNow(state, imp.killPct * (1 - protect)); delete imp.killPct; }
+      lost = applyEffects(state, imp, null, def.impactYears) || [];
+    }
     applyEffects(state, eff);
-    (choice.later || []).forEach(l => state.mods.push({ key: l.key, pct: l.pct, until: state.year + l.years }));
+    (choice.later || []).forEach(l => state.mods.push({ key: l.key, pct: l.pct, until: state.year + l.years, added: state.year }));
     if (choice.goodwill != null) {
       state.goodwill = clamp(state.goodwill + choice.goodwill, -4, 6);
       state.helpLog.push({ year: state.year, id: eventId, helped: choice.goodwill > 0 });
-      outcome = choice.goodwill > 0 ? 'The neighbours will remember this.' : choice.goodwill < 0 ? 'The neighbours will remember this too.' : '';
+      outcome = choice.cannot ? 'The neighbours understand. Nothing changes.' : choice.goodwill > 0 ? 'The neighbours will remember this.' : choice.goodwill < 0 ? 'The neighbours will remember this too.' : '';
     }
     if (choice.flag) state.flags[choice.flag] = state.year;
+    // what actually changed, for the screen, the chart and the "What happened" card
+    const impact = {
+      people: Math.round(state.pop - before.pop), money: Math.round(state.money - before.money), water: Math.round(state.water - before.water),
+      food: Math.round(state.foodStore - before.food), pollution: +(state.pollution - before.pollution).toFixed(1), buildings: lost.length, lost,
+      lasting: Object.entries(state.mods.filter(m => m.added === state.year).reduce((o, m) => { o[m.key] = (o[m.key] || 0) + m.pct; return o; }, {}))
+        .filter(([key, v]) => MOD_NAME[key] && Math.round(v) !== 0).map(([key, v]) => MOD_NAME[key] + ' ' + (v > 0 ? '+' : '−') + Math.abs(Math.round(v)) + '%'),
+    };
+    if (state.tally && died) state.tally.died.crisis = (state.tally.died.crisis || 0) + died;
+    state.marks.push({ year: state.year, title, shock: !!view.shock, people: impact.people });
     if (view.notes.length && def.impact) state.memory.push({ year: state.year, text: title + ': ' + (view.mul > 1.15 ? 'hit harder because of the city you built. ' : view.mul < 0.85 ? 'softened by the city you built. ' : '') + view.notes.filter(n => /year \d+/.test(n)).join(' ') });
     if (outcome) state.memory.push({ year: state.year, text: outcome });
-    state.eventsDone.push({ id: eventId, choice: choiceIndex, year: state.year });
-    state.tally.events.push({ id: eventId, title, choice: label, news, outcome, severity: view.mul });
+    state.eventsDone.push({ id: eventId, choice: k, year: state.year });
+    state.tally.events.push({ id: eventId, title, choice: label, news, outcome, severity: view.mul, impact });
     state.log.push({ year: state.year, text: title + ': ' + label + '.' + (outcome ? ' ' + outcome : '') });
-    return Object.assign({}, choice, { label, news, outcome, severity: view.mul });
+    return Object.assign({}, choice, { label, news, outcome, severity: view.mul, impact, index: k });
   }
 
   // ---------- Level transitions ----------
@@ -1044,7 +1179,7 @@
     K, B, BASE, HOUSING, HOUSE_UP, RES_PER_BLOCK, UNIT, SDGS, LEVELS, WORLD, PAUSES, CAP_YEARS, EVENTS, SHOCKS,
     idx, inLevel, newGame, canPlace, build, demolish, footprint, factoryPaths, maxPathSize, costOf, upgradeOptions, upgrade,
     flows, step, advance, startLevel, result, isDrought, labelFor, fmtMoney, outlook, rates, situations, resetTally,
-    pausesFor, resolveEvent, applyEffects, blocksOf, eventView, severity, NEIGHBOUR, NEWC, defaultChoice, beginEra, eraReport, ERA_W, L1_BUDGET, L1_CAPS, L1_FREE,
+    pausesFor, resolveEvent, applyEffects, blocksOf, eventView, severity, NEIGHBOUR, NEWC, defaultChoice, relevantEvent, eventMakesSense, choicesFor, setWorkers, autoAssign, beginEra, eraReport, ERA_W, L1_BUDGET, L1_CAPS, L1_FREE,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Eco = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EcoCity Leaderboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Lexend:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #07141c; --panel: #0e212c; --raise: #15303d; --line: #234452; --text: #e9f4f1; --muted: #95b0b8; --leaf: #62d36c; --sun: #f5c544; --bad: #ef5b4c; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: radial-gradient(1200px 600px at 20% -10%, #123a2c 0%, transparent 60%), var(--bg); color: var(--text); font-family: Lexend, system-ui, sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 40px; }
+header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+header h1 { font-family: Fredoka, sans-serif; font-size: clamp(28px, 5vw, 46px); margin: 0; line-height: 1; }
+header .sub { color: var(--muted); font-size: 14px; }
+header .right { margin-left: auto; text-align: right; color: var(--muted); font-size: 13px; }
+.podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+.pod { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; min-width: 0; }
+.pod.p1 { border-color: var(--sun); box-shadow: 0 0 0 1px var(--sun) inset; }
+.pod small { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; }
+.pod b { display: block; font-family: Fredoka, sans-serif; font-size: 22px; margin: 4px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pod .sc { font-family: Fredoka, sans-serif; font-size: 34px; color: var(--leaf); }
+.wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; font-size: 12.5px; text-transform: uppercase; letter-spacing: 1px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr:last-child td { border-bottom: 0; }
+.chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12.5px; }
+.chip.ok { background: rgba(98, 211, 108, .16); color: var(--leaf); }
+.chip.dead { background: rgba(239, 91, 76, .16); color: #ff9c90; }
+.rep { color: var(--muted); font-size: 12px; }
+.msg { color: var(--muted); padding: 22px 14px; }
+@media (max-width: 640px) { .podium { grid-template-columns: 1fr; } th, td { padding: 8px; font-size: 14px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><path d="M8 40C6 22 18 8 42 6c1 22-12 35-30 34" fill="#3fbf55"/><path d="M8 40C16 30 24 22 34 14" stroke="#d8ffd9" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
+    <div><h1>EcoCity Leaderboard</h1><div class="sub">Build to Last · Sustainability Club, Technozion 2026</div></div>
+    <div class="right" id="status">Loading…</div>
+  </header>
+  <div class="podium" id="podium"></div>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>#</th><th>Team</th><th class="num">SDG score</th><th class="num">Round 1 · 20%</th><th class="num">Round 2 · 40%</th><th class="num">Round 3 · 40%</th><th class="num">Years lasted</th><th>Fate</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="8" class="msg">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+<script>
+/*CONFIG*/
+(function () {
+  var cfg = window.ECO_CONFIG || {};
+  var qs = new URLSearchParams(location.search);
+  var url = qs.get('sheet') || cfg.sheetUrl || '';
+  var key = cfg.sheetKey || 'ecocity-2026';
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var r0 = function (v) { return v === '' || v == null ? '–' : Math.round(+v); };
+  var $ = function (id) { return document.getElementById(id); };
+  function render(rows) {
+    rows.sort(function (a, b) { return b.score - a.score || b.years - a.years; });
+    $('podium').innerHTML = rows.slice(0, 3).map(function (r, i) {
+      return '<div class="pod p' + (i + 1) + '"><small>' + ['1st', '2nd', '3rd'][i] + ' place</small><b>' + esc(r.team) + '</b><span class="sc">' + (+r.score).toFixed(1) + '</span></div>';
+    }).join('');
+    $('rows').innerHTML = rows.length ? rows.map(function (r, i) {
+      var rd = r.rounds || [];
+      return '<tr><td class="num">' + (i + 1) + '</td><td><b>' + esc(r.team) + '</b>' + (r.repeat ? ' <span class="rep">(repeat)</span>' : '') + '</td><td class="num"><b>' + (+r.score).toFixed(1) + '</b></td><td class="num">' + r0(rd[0]) + '</td><td class="num">' + r0(rd[1]) + '</td><td class="num">' + r0(rd[2]) + '</td><td class="num">' + esc(r.years) + '</td><td><span class="chip ' + (r.alive ? 'ok' : 'dead') + '">' + (r.alive ? 'Thriving' : 'Dead planet') + '</span></td></tr>';
+    }).join('') : '<tr><td colspan="8" class="msg">No finished games yet. Scores appear here the moment a team submits Level 3.</td></tr>';
+  }
+  function load() {
+    if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) {
+      $('status').textContent = 'Not connected';
+      $('rows').innerHTML = '<tr><td colspan="8" class="msg">The organisers\' Google Sheet is not connected yet. Add its web app link to src/config.json ("sheetUrl") and rebuild, or open this page with ?sheet=&lt;link&gt;.</td></tr>';
+      return;
+    }
+    fetch(url + '?' + new URLSearchParams({ key: key, action: 'board' }).toString(), { redirect: 'follow' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.ok) throw new Error(j.error || 'sheet error');
+        render(j.rows || []);
+        $('status').textContent = (j.rows || []).length + ' finished · updated ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      })
+      .catch(function (e) { $('status').textContent = 'Could not reach the sheet (' + e.message + '). Retrying…'; });
+  }
+  load();
+  setInterval(load, 30000);
+})();
+</script>
+</body>
+</html>

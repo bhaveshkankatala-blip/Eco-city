@@ -2,6 +2,8 @@
 
 This is the team's final game plan (written on paper, Oct 2026) together with the values chosen for the web beta. The code is the source of truth for numbers: `src/engine.js` (`B`, `LEVELS`, `DROUGHTS`) and the settings defaults in `src/game.js`.
 
+> **v6 numbers** (these override older values below): Level 1 budget ₹50 L; reservoir 10,000 with 20% of the empty space refilled by rain each year; round weights 20% / 40% / 40%; building output proportional to its crew; upgrade steps cost 1.2×, 1.5×, 1.8× a new block. See [AGENTS.md §0](../AGENTS.md#0-what-changed-in-v6-branch-v6).
+
 ## Format
 
 - Teams of 3–5 share one organiser laptop. They enter a team name, play all three levels, and see only their own result. Organisers see the leaderboard on a PIN-protected panel.

@@ -76,16 +76,17 @@ function sheetSend(params) { if (!sheetOn()) return; const q = LS.get('sheetq', 
 setInterval(sheetFlush, 20000);
 function laptopName() { let n = LS.get('laptop', ''); if (!n) { n = 'Laptop-' + Math.random().toString(36).slice(2, 6).toUpperCase(); LS.set('laptop', n); } return n; }
 
-// Duplicate team names are rejected. The same team (same lead roll number) may play again; it is marked as a repeat.
-async function teamNameCheck(name, roll) {
-  const n = name.trim().toLowerCase(), rl = roll.trim().toLowerCase();
+// Duplicate team names are rejected. The same team (same lead phone number) may play again; it is marked as a repeat.
+const digits = s => String(s || '').replace(/\D/g, '').slice(-10);
+async function teamNameCheck(name, phone) {
+  const n = name.trim().toLowerCase(), ph = digits(phone);
   const same = LS.get('teams', []).concat(LS.get('results', [])).filter(r => (r.team || '').trim().toLowerCase() === n);
-  let res = { taken: same.some(r => (r.roll || '').trim().toLowerCase() !== rl), repeat: same.length > 0 };
+  let res = { taken: same.some(r => digits(r.phone) !== ph), repeat: same.length > 0 };
   if (sheetOn()) {
-    try { const j = await sheetCall({ action: 'check', team: name, roll }); res = { taken: !!j.taken, repeat: !!j.repeat || res.repeat }; }
+    try { const j = await sheetCall({ action: 'check', team: name, phone: ph }); res = { taken: !!j.taken, repeat: !!j.repeat || res.repeat }; }
     catch (e) { res.offline = true; }
   } else if (db) {
-    try { const q = await db.collection('results').get(); q.docs.forEach(d => { const r = d.data(); if ((r.team || '').trim().toLowerCase() === n) { if ((r.roll || '').trim().toLowerCase() !== rl) res.taken = true; res.repeat = true; } }); } catch (e) {}
+    try { const q = await db.collection('results').get(); q.docs.forEach(d => { const r = d.data(); if ((r.team || '').trim().toLowerCase() === n) { if (digits(r.phone) !== ph) res.taken = true; res.repeat = true; } }); } catch (e) {}
   }
   return res;
 }
@@ -109,18 +110,18 @@ let ui = { tool: null, sel: null, selTile: -1, hover: -1, tab: 'agri', size: 1, 
 function persist() { if (S && !S.over) LS.set('game', { S }); }
 function levelMinutes(l) { return +(l === 1 ? S.cfg.t1 : l === 2 ? S.cfg.t2 : S.cfg.t3); }
 
-function newGame(team, roll, phone, repeat) {
+function newGame(team, phone, repeat) {
   const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
   S = E.newGame(seed, team);
-  S.roll = roll; S.phone = phone;
+  S.phone = phone;
   S.cfg = { dayMin: settings.dayMin || 6, t1: settings.t1, t2: settings.t2, t3: settings.t3, jump: settings.jump, pauseSec: settings.pauseSec, finalPauseSec: settings.finalPauseSec };
   S.deadline = Date.now() + levelMinutes(1) * 60000;
   S.startedAt = new Date().toISOString();
   S.gameId = 'g' + seed.toString(36) + Date.now().toString(36);
   S.repeat = !!repeat;
-  sheetSend({ action: 'start', id: S.gameId, team, roll, phone, laptop: laptopName(), startedAt: S.startedAt, repeat: repeat ? '1' : '' });
+  sheetSend({ action: 'start', id: S.gameId, team, phone, laptop: laptopName(), startedAt: S.startedAt, repeat: repeat ? '1' : '' });
   ui.tool = null; ui.sel = null; ui.selTile = -1; ui.size = 1; ui.path = 0;
-  const teams = LS.get('teams', []); teams.push({ team, roll, startedAt: S.startedAt }); LS.set('teams', teams);
+  const teams = LS.get('teams', []); teams.push({ team, phone, startedAt: S.startedAt }); LS.set('teams', teams);
   if (has3D) { R3.orbit(false); R3.load(S); R3.grid(false); R3.select(null); }
   setView('plan');
   persist();
@@ -242,12 +243,12 @@ function renderStats() {
     '<div class="tankbar' + (rLow ? ' low' : '') + '" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(rp * 100) + '"><i style="width:' + (rp * 100).toFixed(1) + '%"></i><span>' + fmt(S.water) + ' of ' + fmt(f.waterCap) + '</span></div></div>');
   h.push(statRow('energy', 'Energy', fmt(f.gen) + ' / yr', 'Used ' + fmt(f.eDemand) + ' · ' + Math.round(f.cleanShare * 100) + '% clean', f.gen < f.eDemand));
   h.push(statRow('jobs', 'Jobs', fmt(f.jobs), 'Workers ' + fmt(f.workforce) + ' · ' + fmt(f.unemployed) + ' without work' + (f.unstaffed ? ' · ' + f.unstaffed + ' building' + (f.unstaffed > 1 ? 's' : '') + ' closed' : ''), f.unstaffed > 0 || (f.workforce && f.unemployed / f.workforce > 0.15)));
-  if (S.hold > 0 && S.phase === 'plan') h.push('<button class="holdchip" id="holdBtn">' + fmt(S.hold) + ' free workers waiting · Assign them</button>');
+  if (S.phase === 'plan') h.push('<button class="holdchip' + (f.unemployed > 0 ? ' busy' : '') + '" id="holdBtn">' + (f.unemployed > 0 ? fmt(f.unemployed) + ' free workers · Assign them' : 'Assign workers') + '</button>');
   h.push(statRow('money', S.level === 1 ? 'Budget left' : 'Money', money(S.money), (f.net >= 0 ? '+' : '') + money(f.net) + ' a year after upkeep' + (f.net < 0 ? ': losing money hurts SDG 1, No Poverty' : ''), S.money < 0 || f.net < 0));
   h.push(statRow('pol', 'Pollution', Math.round(S.pollution) + '%', 'Air quality', S.pollution > 75));
   h.push(statRow('rain', 'Rain', Math.round(f.rain * 100) + '%', f.drought ? 'Drought: well below normal' : 'Of a normal monsoon', f.drought));
   $('statList').innerHTML = h.join('');
-  const hb = $('holdBtn'); if (hb) hb.onclick = () => openRealloc(0, null);
+  const hb = $('holdBtn'); if (hb) hb.onclick = () => openWorkers(null);
   // top bar: births and deaths
   $('pulseB').textContent = r.per1000.births.toFixed(0);
   $('pulseD').textContent = r.per1000.deaths.toFixed(0);
@@ -326,16 +327,23 @@ function renderInspector() {
     blocks = '<div class="blocks">' + bd.tiles.map(j => { const t = S.tiles[j]; const pct = t.resMax ? t.res / t.resMax : 0; return '<div class="blk' + (t.res <= 0 ? ' empty' : '') + '"><i style="height:' + Math.round(pct * 100) + '%"></i><span>' + (t.res > 0 ? fmt(t.res) : 'empty') + '</span></div>'; }).join('') + '<small>' + E.UNIT[d.on] + ' left per block</small></div>';
   }
   let staff = '';
-  if (d.min && !bd.initial) staff = '<label for="wk" class="wkl">Most workers allowed: <b class="num" id="wkv">' + fmt(bd.workers) + '</b></label><input id="wk" type="range" min="' + d.min * n + '" max="' + d.max * n + '" step="' + (d.max * n <= 20 ? 1 : E.K) + '" value="' + bd.workers + '">';
+  if (d.min) {
+    const fr = ui.flows ? ui.flows.unemployed : 0;
+    staff = '<div class="crew"><label for="wk" class="wkl">Workers in this building: <b class="num" id="wkv">' + fmt(bd.workers) + '</b> of ' + fmt(d.max * n) + ' · <span id="wkpct">' + Math.round(bd.workers / (d.max * n) * 100) + '%</span> output</label>' +
+      '<input id="wk" type="range" min="' + d.min * n + '" max="' + d.max * n + '" step="' + (d.max * n <= 20 ? 1 : E.K) + '" value="' + bd.workers + '">' +
+      '<small>Fewer workers = every output of this building falls in proportion. People you take out become free workers (<b id="wkfree">' + fmt(fr) + '</b> free now). <a href="#" id="wkall">Assign workers across the city</a></small></div>';
+  }
   // upgrade cards (Clash of Clans style)
   const ups = E.upgradeOptions(S, bd.id);
   const upHtml = ups.map(u => {
     if (u.kind === 'block') {
       const lvl = u.level, next = Math.min(u.max, lvl + 1);
       const g = u.gain || {};
-      const gains = [g.gen ? '+' + fmt(g.gen) + ' energy' : '', g.econ ? '+' + money(g.econ) + '/yr' : '', g.jobs ? '+' + fmt(g.jobs) + ' jobs' : '', g.pol >= 1 ? '+' + fmt(g.pol) + ' pollution' : ''].filter(Boolean).join(' · ');
+      const gains = [g.gen ? '+' + fmt(g.gen) + ' energy' : '', g.econ ? '+' + money(g.econ) + '/yr' : ''].filter(Boolean).join(' · ');
+      const needs = [g.jobs ? '+' + fmt(g.minJobs) + '–' + fmt(g.jobs) + ' workers' : '', g.water ? '+' + fmt(g.water) + ' water/yr' : '', g.energy ? '+' + fmt(g.energy) + ' energy/yr' : '', g.use ? 'digs ' + fmt(g.use) + '/yr more' : '', g.pol >= 1 ? '+' + fmt(g.pol) + ' pollution' : ''].filter(Boolean).join(' · ');
+      const nextCost = lvl + 1 < u.max ? Math.round(d.cost * (0.9 + 0.3 * (lvl + 1))) : 0;
       return '<div class="upcard' + (u.ok ? '' : ' off') + '"><div class="uphead"><span class="lvl">Lv ' + lvl + '</span><svg viewBox="0 0 24 24" width="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span class="lvl next">' + (lvl >= u.max ? 'MAX' : 'Lv ' + next) + '</span><b>Expand onto the next ' + E.labelFor(d.on) + ' block</b></div>' +
-        (lvl < u.max ? '<div class="upgain">' + gains + '</div>' : '') + (u.ok ? '<button class="btn upbtn" data-up="block">Upgrade · ' + money(u.cost) + '</button>' : '<div class="upwhy">' + escapeHtml(u.why || '') + '</div>') + '</div>';
+        (lvl < u.max ? '<div class="upgain">Gives ' + gains + '</div><div class="upneed">Needs ' + needs + '</div>' + (nextCost ? '<div class="upneed">The step after this will cost ' + money(nextCost) + '.</div>' : '') : '') + (u.ok ? '<button class="btn upbtn" data-up="block">Upgrade · ' + money(u.cost) + '</button>' : '<div class="upwhy">' + escapeHtml(u.why || '') + '</div>') + '</div>';
     }
     const g = u.gain || {};
     return '<div class="upcard' + (u.ok ? '' : ' off') + (u.done ? ' done' : '') + '"><div class="uphead">' + (u.done ? '<span class="tick">✓</span>' : '') + '<b>' + u.name + '</b></div><div class="upgain">' + (g.gen ? '+' + fmt(g.gen) + ' clean energy / yr' : '+' + fmt(g.water) + ' water / yr in a normal monsoon') + '</div>' +
@@ -346,7 +354,12 @@ function renderInspector() {
     '<div class="row2"><button class="btn danger" id="demo">Demolish</button><button class="btn ghost" id="closeIns">Close</button></div>';
   el.hidden = false;
   const wk = $('wk');
-  if (wk) wk.oninput = () => { bd.workers = +wk.value; $('wkv').textContent = fmt(+wk.value); refresh(false, true); persist(); };
+  if (wk) wk.oninput = () => {
+    E.setWorkers(S, bd.id, +wk.value);
+    $('wkv').textContent = fmt(bd.workers); $('wkpct').textContent = Math.round(bd.workers / (d.max * n) * 100) + '%';
+    refresh(false, true); $('wkfree').textContent = fmt(ui.flows.unemployed); persist();
+  };
+  if ($('wkall')) $('wkall').onclick = e => { e.preventDefault(); openWorkers(null); };
   $('closeIns').onclick = () => { ui.sel = null; if (has3D) R3.select(null); refresh(); };
   $('demo').onclick = () => { const bt = bd.tiles.slice(); const freed = bd._w || 0; E.demolish(S, bd.id); ui.sel = null; if (has3D) { R3.select(null); R3.puff(bt); } toast(d.name + ' demolished. Water and money spent are not returned.'); afterDemolish(freed, d.name); };
   el.querySelectorAll('[data-up]').forEach(b => b.onclick = () => {
@@ -359,59 +372,90 @@ function renderInspector() {
   });
 }
 
-/* Workers freed by a demolition wait for the player to place them */
+/* Workers: the team decides how many people work in each building. Free workers (no job) can be sent
+   anywhere, at any time during a level. During the years that pass, new workers join understaffed buildings. */
 function afterDemolish(freed, name) {
-  if (freed > 0 && S.phase === 'plan') { S.hold = (S.hold || 0) + freed; refresh(); persist(); openRealloc(freed, name); }
-  else { refresh(); persist(); }
+  refresh(); persist();
+  if (freed > 0 && S.phase === 'plan') openWorkers({ freed, name });
 }
 let ra = null;
-function openRealloc(freed, name) {
-  E.flows(S); // current staffing (held workers excluded)
-  const cands = Object.values(S.buildings).filter(b => B[b.type].min && !b._dead).map(b => {
-    const d = B[b.type], n = d.perBlock ? b.tiles.length : 1;
-    return { b, mn: d.min * n, mx: d.max * n, w: b._w || 0, add: 0, step: d.max * n <= 20 ? 1 : E.K };
-  }).filter(c => c.w < c.mx).sort((a, b) => (a.w > 0) - (b.w > 0) || (a.w / a.mx) - (b.w / b.mx));
-  ra = { pool: S.hold || 0, cands };
-  $('raTitle').textContent = freed ? fmt(freed) + ' workers lost their jobs' : 'Free workers';
-  $('raLead').textContent = (name ? 'They worked at the ' + name + ' you demolished. ' : '') + 'Choose which buildings they join. Buildings marked Closed need their minimum before they open. Anyone you do not place stays without work until you assign them.';
-  renderRealloc();
+function crewList() {
+  E.flows(S);
+  return Object.values(S.buildings).filter(b => B[b.type].min && !b._dead).map(b => {
+    const d = B[b.type], k = d.perBlock ? b.tiles.length : 1;
+    return { b, mn: d.min * k, mx: d.max * k, step: d.max * k <= 20 ? 1 : E.K };
+  }).sort((a, b) => ((a.b._w || 0) > 0) - ((b.b._w || 0) > 0) || B[a.b.type].name.localeCompare(B[b.b.type].name));
+}
+function openWorkers(why) {
+  ra = { rows: crewList() };
+  $('raTitle').textContent = why ? fmt(why.freed) + ' workers lost their jobs' : 'Assign workers';
+  $('raLead').textContent = (why ? 'They worked at the ' + why.name + ' you demolished. ' : '') + 'Free workers have no job. Give them to a building with +, or take people out with − to free them. A building runs at the share of its full crew it has: half the workers, half the output. Below its minimum crew it closes.';
+  renderWorkers();
   $('reallocScreen').hidden = false;
 }
-function renderRealloc() {
-  $('raPool').textContent = fmt(ra.pool);
-  $('raList').innerHTML = ra.cands.length ? ra.cands.map((c, k) => {
-    const now = c.w + c.add, closed = now < c.mn;
-    const canAdd = ra.pool > 0 && now < c.mx && (now >= c.mn || ra.pool >= c.mn - now);
-    return '<div class="rarow' + (c.w === 0 ? ' closed' : '') + '" data-k="' + k + '"><div><b>' + B[c.b.type].name + '</b><small>' + (c.w === 0 ? 'Closed · needs ' + fmt(c.mn) + ' to open' : fmt(c.w) + ' working · room for ' + fmt(c.mx - c.w) + ' more') + (closed && c.add ? ' · still closed' : '') + '</small></div>' +
-      '<button data-a="-" aria-label="Fewer"' + (c.add ? '' : ' disabled') + '>−</button><span class="add num">' + (c.add ? '+' + fmt(c.add) : '0') + '</span><button data-a="+" aria-label="More"' + (canAdd ? '' : ' disabled') + '>+</button></div>';
-  }).join('') : '<p class="lead">Every building already has as many workers as it can take. These people will stay without work until you build something that needs them.</p>';
+function renderWorkers() {
+  const f = E.flows(S);
+  $('raPool').textContent = fmt(f.unemployed);
+  $('raList').innerHTML = ra.rows.map((c, k) => {
+    const w = c.b._w || 0, target = c.b.workers, pct = Math.round(w / c.mx * 100);
+    const closed = w < c.mn;
+    const canAdd = target < c.mx && f.unemployed > 0, canSub = target > c.mn;
+    return '<div class="rarow' + (closed ? ' closed' : '') + '" data-k="' + k + '"><div><b>' + B[c.b.type].name + '</b><small>' + (closed ? 'Closed · needs ' + fmt(c.mn) + ' workers' : fmt(w) + ' of ' + fmt(c.mx) + ' workers · ' + pct + '% output') + (target > w && !closed ? ' · ' + fmt(target - w) + ' places empty' : '') + '</small></div>' +
+      '<button data-a="-" aria-label="Fewer workers"' + (canSub ? '' : ' disabled') + '>−</button><span class="add num">' + fmt(target) + '</span><button data-a="+" aria-label="More workers"' + (canAdd ? '' : ' disabled') + '>+</button></div>';
+  }).join('') || '<p class="lead">No building needs workers yet.</p>';
 }
 $('raList').addEventListener('click', e => {
   const btn = e.target.closest('[data-a]'), row = e.target.closest('[data-k]'); if (!row) return;
-  const c = ra.cands[+row.dataset.k];
+  const c = ra.rows[+row.dataset.k];
   if (has3D) R3.select(c.b.id);
   if (!btn) return;
-  const now = c.w + c.add;
-  if (btn.dataset.a === '+') { const want = now < c.mn ? c.mn - now : Math.min(c.step, c.mx - now); const g = Math.min(want, ra.pool); if (now + g < c.mn) return; c.add += g; ra.pool -= g; }
-  else { const back = (c.w + c.add - c.step < c.mn) ? c.add : Math.min(c.step, c.add); c.add -= back; ra.pool += back; }
-  renderRealloc();
+  const f = E.flows(S);
+  if (btn.dataset.a === '+') E.setWorkers(S, c.b.id, c.b.workers + Math.min(c.step, Math.max(1, f.unemployed)));
+  else E.setWorkers(S, c.b.id, c.b.workers - c.step);
+  renderWorkers(); refresh(false, true); persist();
 });
-function closeRealloc(auto) {
+function closeWorkers() {
   if (!ra) return;
-  if (auto) S.hold = 0;
-  else {
-    ra.cands.forEach(c => { if (c.add > 0) { c.b.pin = c.w + c.add; c.b.workers = Math.max(c.b.workers, c.b.pin); } });
-    S.hold = ra.pool;
-  }
   ra = null; $('reallocScreen').hidden = true; if (has3D) R3.select(null);
   refresh(); persist();
-  toast(auto ? 'The city has given the free workers jobs where they were needed most.' : 'Workers placed.' + (S.hold ? ' ' + fmt(S.hold) + ' are still waiting for work.' : ''));
 }
-$('raDone').onclick = () => closeRealloc(false);
-$('raAuto').onclick = () => closeRealloc(true);
+$('raDone').onclick = closeWorkers;
+// fill every understaffed building from the free workers, food and power first
+$('raAuto').onclick = () => { E.autoAssign(S, E.flows(S)); renderWorkers(); refresh(false, true); persist(); toast('Free workers sent to the buildings that need them most.'); };
+
+/* Placing a building that needs workers: the team chooses the crew */
+let crewAsk = null;
+function askCrew(id) {
+  const b = S.buildings[id], d = B[b.type]; if (!d.min) return;
+  const k = d.perBlock ? b.tiles.length : 1, mn = d.min * k, mx = d.max * k;
+  if (ui.crewPref && ui.crewPref[b.type] != null && ui.crewPref.level === S.level) { E.setWorkers(S, id, Math.round(mn + (mx - mn) * ui.crewPref[b.type])); refresh(); persist(); return; }
+  const f = E.flows(S), free = f.unemployed + (b._w || 0);
+  const start = clamp(free, mn, mx);
+  E.setWorkers(S, id, start);
+  crewAsk = { id, mn, mx, step: mx <= 20 ? 1 : E.K };
+  $('cwTitle').textContent = 'How many people should work at the new ' + d.name + '?';
+  $('cwRange').min = mn; $('cwRange').max = mx; $('cwRange').step = crewAsk.step; $('cwRange').value = start;
+  $('cwSame').checked = false; $('cwSameLbl').textContent = 'Use the same share for every new ' + d.name + ' this level';
+  renderCrew();
+  $('crewScreen').hidden = false;
+}
+function renderCrew() {
+  const b = S.buildings[crewAsk.id]; if (!b) return;
+  const f = E.flows(S), w = b._w || 0, pct = Math.round(w / crewAsk.mx * 100);
+  $('cwVal').textContent = fmt(b.workers);
+  $('cwInfo').innerHTML = 'Crew ' + fmt(crewAsk.mn) + '–' + fmt(crewAsk.mx) + '. This building will run at <b>' + pct + '%</b>: its food, energy and income are ' + pct + '% of the full amount, while its water use stays the same and its smoke falls only to half. Full crews give the best value.' +
+    (w < crewAsk.mn ? ' <b class="bad">Not enough free workers: it stays closed until you free some.</b>' : '') + '<br>Free workers left in the city: <b>' + fmt(f.unemployed) + '</b>';
+}
+$('cwRange').oninput = () => { E.setWorkers(S, crewAsk.id, +$('cwRange').value); renderCrew(); refresh(false, true); };
+$('cwOk').onclick = () => {
+  const b = S.buildings[crewAsk.id];
+  if (b && $('cwSame').checked) { ui.crewPref = ui.crewPref && ui.crewPref.level === S.level ? ui.crewPref : { level: S.level }; ui.crewPref[b.type] = (b.workers - crewAsk.mn) / Math.max(1, crewAsk.mx - crewAsk.mn); }
+  crewAsk = null; $('crewScreen').hidden = true; refresh(); persist();
+};
 
 /* Build bar */
 // grouped by what each building does, not by the level it unlocks in
+$('unOk') && ($('unOk').onclick = () => { $('unlockScreen').hidden = true; });
 const TABS = [
   ['agri', 'Food', ['foodFarm', 'cashFarm', 'granary']],
   ['energy', 'Energy', ['coalPlant', 'nuclear', 'solar', 'wind', 'dam', 'battery']],
@@ -544,7 +588,7 @@ cv.addEventListener('pointermove', e => {
   const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
   if (drag) {
     if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 6) drag.moved = true;
-    if (drag.moved && has3D) { const dx = e.clientX - drag.lx, dy = e.clientY - drag.ly; if (drag.btn === 2 || e.shiftKey) R3.rotate(-dx * 0.006, dy * 0.004); else R3.pan(dx, dy); }
+    if (drag.moved && has3D) { const dx = e.clientX - drag.lx, dy = e.clientY - drag.ly; const sg = camFlip ? -1 : 1; if (drag.btn === 2 || e.shiftKey) R3.rotate(-dx * 0.006 * sg, dy * 0.004 * sg); else R3.pan(dx * sg, dy * sg); }
     drag.lx = e.clientX; drag.ly = e.clientY;
   }
   if (!S || !has3D) return;
@@ -561,10 +605,35 @@ cv.addEventListener('pointerup', e => {
   clickTile(i);
 });
 cv.addEventListener('contextmenu', e => e.preventDefault());
-cv.addEventListener('wheel', e => { e.preventDefault(); if (!has3D) return; const r = cv.getBoundingClientRect(); R3.zoom(e.deltaY < 0 ? 0.88 : 1 / 0.88, e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+// Wheel: a mouse wheel zooms; on a touchpad, pinch zooms and two-finger scroll moves the map
+// (like scrolling a page). "Flip" in the camera controls reverses scroll and drag for anyone who prefers it.
+let camFlip = false; try { camFlip = localStorage.getItem('eco-camflip') === '1'; } catch (_) { }
+function isTouchpad(e) {
+  if (e.deltaMode !== 0) return false; // lines/pages: a mouse wheel
+  if (e.deltaX !== 0) return true; // only touchpads scroll sideways
+  return Math.abs(e.deltaY) < 50 || !Number.isInteger(e.deltaY); // mouse wheels step in big whole notches (100/120)
+}
+cv.addEventListener('wheel', e => {
+  e.preventDefault(); if (!has3D) return;
+  const r = cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top, sg = camFlip ? -1 : 1;
+  if (e.ctrlKey) { R3.zoom(Math.exp(clamp(e.deltaY, -50, 50) * 0.012), sx, sy); return; } // pinch (browsers send it as ctrl+wheel)
+  if (isTouchpad(e)) { const k = e.deltaMode === 0 ? 1 : 16; R3.pan(-e.deltaX * k * sg, -e.deltaY * k * sg); return; }
+  R3.zoom((e.deltaY * sg) < 0 ? 0.88 : 1 / 0.88, sx, sy);
+}, { passive: false });
+// Safari pinch
+let gScale = 1;
+cv.addEventListener('gesturestart', e => { e.preventDefault(); gScale = 1; });
+cv.addEventListener('gesturechange', e => { e.preventDefault(); if (!has3D) return; R3.zoom(gScale / e.scale); gScale = e.scale; });
+function setFlip(on) {
+  camFlip = on; try { localStorage.setItem('eco-camflip', on ? '1' : '0'); } catch (_) { }
+  const b = document.querySelector('[data-cam=flip]'); if (b) b.setAttribute('aria-pressed', on);
+}
+setFlip(camFlip);
 window.addEventListener('keydown', e => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
-  if (e.key === 'Escape' && ra) { closeRealloc(true); return; }
+  if (e.key === 'Escape' && !$('unlockScreen').hidden) { $('unOk').click(); return; }
+  if (e.key === 'Escape' && ra) { closeWorkers(); return; }
+  if (e.key === 'Escape' && crewAsk) { $('cwOk').click(); return; }
   if (e.key === 'Escape') { setTimeout(() => { markResources(); renderMode(); showCardInfo(null); }, 0); }
   if (e.key === 'Escape') { ui.tool = null; ui.sel = null; ui.selTile = -1; if (has3D) { R3.grid(false); R3.select(null); } if (S) refresh(); }
   if (!has3D || viewMode !== 'plan') return;
@@ -582,6 +651,7 @@ $('mapCtl').addEventListener('click', e => {
   const b = e.target.closest('[data-cam]'); if (!b || !has3D) return;
   const a = b.dataset.cam;
   if (a === 'l') R3.rotateStep(-1); if (a === 'r') R3.rotateStep(1); if (a === 'in') R3.zoom(0.8); if (a === 'out') R3.zoom(1.25); if (a === 'home') centerCam(false);
+  if (a === 'flip') { setFlip(!camFlip); toast(camFlip ? 'Controls flipped: scrolling and dragging now move the other way.' : 'Controls back to normal: the map follows your fingers.'); }
 });
 
 function clickTile(i) {
@@ -606,6 +676,7 @@ function clickTile(i) {
   markResources(); renderCards();
   setHover(i);
   guideEvent('built', placed.type);
+  if (B[placed.type].min) askCrew(placed.id);
 }
 function effectLine(b) {
   const d = B[b.type], o = [], n = d.perBlock ? b.tiles.length : 1;
@@ -730,7 +801,7 @@ function confirmBox(title, text, yes, onYes) {
   $('cfYes').onclick = () => { $('confirmScreen').hidden = true; onYes(); };
   $('cfNo').onclick = () => { $('confirmScreen').hidden = true; };
 }
-function closeAll() { ['confirmScreen', 'rulesScreen', 'pinScreen', 'sdgScreen'].forEach(id => $(id).hidden = true); guide = null; showGuideStep(); }
+function closeAll() { ['confirmScreen', 'rulesScreen', 'pinScreen', 'sdgScreen', 'unlockScreen', 'boardScreen'].forEach(id => $(id).hidden = true); guide = null; showGuideStep(); }
 $('finishBtn').onclick = () => {
   if (!S || S.phase !== 'plan') return;
   const msg = S.level === 1 ? S.cfg.jump + ' years will pass. Couples will have their children whether or not there is food for them; if there is not, people starve. Money left over and earned is saved for Level 2.'
@@ -740,7 +811,8 @@ $('finishBtn').onclick = () => {
 };
 function finishLevel() {
   if (S.phase !== 'plan') return;
-  if (ra) closeRealloc(true);
+  if (ra) closeWorkers();
+  if (crewAsk) $('cwOk').click();
   S.hold = 0;
   sheetSend({ action: 'update', id: S.gameId, status: 'Playing', level: S.level < 3 ? 'Time jump after L' + S.level : 'Final run', year: S.year });
   ui.tool = null; ui.sel = null; ui.selTile = -1; guide = null; showGuideStep(); $('fpick').hidden = true;
@@ -758,7 +830,21 @@ function goLevel(l) {
   setView('plan'); if (has3D) R3.orbit(false);
   refresh(true); persist(); centerCam(false);
   renderNews(true);
-  toast('Level ' + l + ': the land has grown to ' + E.LEVELS[l].size + '×' + E.LEVELS[l].size + '.');
+  showUnlocks(l);
+}
+// what is new in this level: buildings that were locked before, and (from Level 2) upgrades
+function showUnlocks(l) {
+  const types = Object.keys(B).filter(t => B[t].lvl === l);
+  const tabOf = t => (TABS.find(x => x[2].includes(t)) || ['', ''])[1];
+  $('unTitle').textContent = 'Level ' + l + ': new things you can build';
+  $('unLead').textContent = 'Your land has grown to ' + E.LEVELS[l].size + '×' + E.LEVELS[l].size + ' blocks. ' + (l === 2 ? 'These were locked in Level 1:' : 'These were locked until now:');
+  $('unGrid').innerHTML = types.map(t => {
+    if (previews[t] === undefined) previews[t] = has3D ? R3.thumb(t) : null;
+    return '<div class="uncard">' + (previews[t] ? '<img alt="" src="' + previews[t] + '">' : '') + '<div><b>' + B[t].name + '</b><span class="tab">' + tabOf(t) + ' tab</span><p>' + escapeHtml(B[t].desc) + '</p></div></div>';
+  }).join('');
+  $('unUp').innerHTML = l === 2 ? '<b>Upgrades are open.</b> Choose <b>Inspect &amp; demolish → Inspect</b> and click a building: plants and mines can grow onto the next resource block (each step costs more and needs more workers), and homes can get rooftop solar and rainwater harvesting.'
+    : '<b>Remember:</b> you can still upgrade plants, mines and homes (Inspect a building), and move workers between buildings with <b>Assign workers</b> in the Jobs panel.';
+  $('unlockScreen').hidden = false;
 }
 
 /* Time jumps, with checkpoint events */
@@ -780,7 +866,9 @@ function runSim(opt) {
     if (paused) return;
     acc += perFrame();
     while (acc >= 1 && done < opt.years && !S.dead) {
-      const p = pauses.find(p => p.year === S.year && !S.eventsDone.some(e => e.year === S.year && e.id === p.eventId));
+      const p = pauses.find(p => p.year === S.year && !S.eventsDone.some(e => e.year === S.year));
+      // an event that makes no sense for this city (no water to share, no coal to mine) is swapped
+      if (p) p.eventId = E.relevantEvent(S, S.schedule[p.n], p.n);
       if (p) { paused = true; acc = 0; fast = false; showEvent(p, opt, () => { paused = false; requestAnimationFrame(frame); }); break; }
       acc -= 1;
       E.step(S, opt.mode); done++;
@@ -831,6 +919,15 @@ function drawSim(opt, y0) {
     all.forEach((r, i) => { const x = X(r.year), y = Y(r[k]); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
     const lr = all[all.length - 1]; g.fillStyle = col; g.beginPath(); g.arc(X(lr.year), Y(lr[k]), 7, 0, 7); g.fill();
   });
+  // crises and decisions on the timeline: red for crises, blue for decisions; the dip after them is their effect
+  (S.marks || []).forEach((m, mi) => {
+    if (m.year < x0 || m.year > x1) return;
+    const x = X(m.year);
+    g.strokeStyle = m.shock ? 'rgba(255,110,95,.9)' : 'rgba(120,190,255,.8)'; g.lineWidth = 3; g.setLineDash([6, 6]);
+    g.beginPath(); g.moveTo(x, pad); g.lineTo(x, h - pad); g.stroke(); g.setLineDash([]);
+    g.fillStyle = m.shock ? '#ff9c90' : '#9cd0ff'; g.font = '20px Lexend, sans-serif'; g.textAlign = 'left';
+    g.fillText(m.title + (m.people < 0 ? ' (' + fmt(m.people) + ')' : ''), Math.min(x + 6, w - 260), pad + 18 + (mi % 3) * 22);
+  });
   if (!opt.final) { g.strokeStyle = 'rgba(255,255,255,.35)'; g.setLineDash([8, 8]); g.beginPath(); g.moveTo(X(y0), pad); g.lineTo(X(y0), h - pad); g.stroke(); g.setLineDash([]); }
 }
 
@@ -864,12 +961,26 @@ const EV_ART = (() => {
   return id => '<svg viewBox="0 0 120 120" width="150" height="150" aria-hidden="true">' + (A[id] || cloud + drops('#8fd0ff')) + '</svg>';
 })();
 let evTimer = 0;
+// what a crisis and the response actually changed, in numbers the team can see in the stats
+function impactHtml(im) {
+  const out = [];
+  const sgn = (v, f) => (v > 0 ? '+' : '−') + f(Math.abs(v));
+  if (im.people) out.push(['People', sgn(im.people, fmt), im.people < 0]);
+  if (Math.abs(im.money) >= 1) out.push(['Money', sgn(im.money, money), im.money < 0]);
+  if (Math.abs(im.water) >= 1) out.push(['Reservoir', sgn(im.water, fmt), im.water < 0]);
+  if (Math.abs(im.food) >= 1) out.push(['Food in store', sgn(im.food, fmt), im.food < 0]);
+  if (Math.abs(im.pollution) >= 0.5) out.push(['Pollution', sgn(im.pollution, v => v.toFixed(0) + '%'), im.pollution > 0]);
+  if (im.buildings) out.push(['Destroyed', im.lost.join(', '), true]);
+  (im.lasting || []).forEach(t => out.push(['For the next years', t, /Income −|Food output −|Rain −|Energy output −|Death rate \+/.test(t)]));
+  if (!out.length) return '';
+  return '<div class="impact">' + out.map(([k, v, bad]) => '<div class="' + (bad ? 'bad' : 'good') + '"><small>' + k + '</small><b>' + escapeHtml(String(v)) + '</b></div>').join('') + '</div>';
+}
 function trustDots(g) { const n = Math.max(0, Math.min(5, Math.round((g + 4) / 2))); return '<span class="trust" title="How much your neighbours trust you">' + Array.from({ length: 5 }, (_, i) => '<i class="' + (i < n ? 'on' : '') + '"></i>').join('') + '</span>'; }
 function showEvent(p, opt, resume) {
   const ov = EVENT_TEXT[p.eventId] || {};
   const v = E.eventView(S, p.eventId);
   const secs = opt.final ? S.cfg.finalPauseSec : S.cfg.pauseSec;
-  const def = E.defaultChoice(p.eventId);
+  const def = E.defaultChoice(p.eventId, S);
   $('evKind').textContent = (v.neighbour ? 'Neighbour asks for help' : v.shock ? 'Crisis' : 'Decision') + ' · Year ' + S.year;
   $('evTitle').textContent = ov.title || v.title;
   $('evText').textContent = ov.text || v.text;
@@ -881,7 +992,10 @@ function showEvent(p, opt, resume) {
   $('evNotes').innerHTML = (sevTxt ? '<div class="sev ' + sevCls + '">' + sevTxt + '</div>' : '') + (v.notes.length ? '<ul>' + v.notes.map(n => '<li>' + escapeHtml(n) + '</li>').join('') + '</ul>' : '') +
     ((v.neighbour || v.choices.some(c => c.ask)) ? '<div class="trustrow">Neighbours\' trust ' + trustDots(S.goodwill || 0) + '</div>' : '');
   $('evNotes').hidden = !$('evNotes').innerHTML;
-  $('evChoices').innerHTML = v.choices.map((c, k) => '<button class="evc' + (c.ask ? ' ask' : '') + '" data-k="' + k + '"><b>' + escapeHtml(c.label) + '</b><span>' + escapeHtml(c.detail || '') + '</span></button>').join('');
+  // what the crisis will do to this city, before anyone chooses
+  if (v.expect && v.expect.length) $('evNotes').innerHTML = '<div class="expect"><b>What it will do:</b> ' + v.expect.map(escapeHtml).join(' · ') + '</div>' + $('evNotes').innerHTML;
+  $('evNotes').hidden = !$('evNotes').innerHTML;
+  $('evChoices').innerHTML = v.choices.map((c, k) => '<button class="evc' + (c.ask ? ' ask' : '') + (c.cannot ? ' cannot' : '') + '" data-k="' + k + '"' + (c.disabled ? ' disabled' : '') + '><b>' + escapeHtml(c.label) + '</b><span>' + escapeHtml(c.disabled ? c.disabled + ' ' + (c.detail || '') : (c.detail || '')) + '</span></button>').join('');
   $('evDefault').textContent = 'Discuss with your team. If time runs out: ' + v.choices[def].label + '.';
   $('evOutcome').hidden = true; $('evChoices').hidden = false; $('evClock').style.visibility = '';
   $('eventScreen').hidden = false;
@@ -905,7 +1019,8 @@ function showEvent(p, opt, resume) {
     $('evClock').style.visibility = 'hidden';
     $('evOutTitle').textContent = (timeout ? 'Time ran out: ' : 'You chose: ') + (ch ? ch.label : '');
     $('evOutText').textContent = (ch && ch.outcome) ? ch.outcome : (ch && ch.news ? ch.news : '');
-    $('evOutTrust').innerHTML = (E.EVENTS[p.eventId].neighbour || (ch && ch.ask)) ? 'Neighbours\' trust ' + trustDots(S.goodwill || 0) : '';
+    $('evOutImpact').innerHTML = ch && ch.impact ? impactHtml(ch.impact) : '';
+    $('evOutTrust').innerHTML = (E.EVENTS[p.eventId].neighbour || (ch && ch.ask) || (ch && ch.cannot)) ? 'Neighbours\' trust ' + trustDots(S.goodwill || 0) : '';
     $('evDefault').textContent = '';
     let n = 8; $('evGo').textContent = 'Continue (' + n + ')';
     const t2 = () => { n--; if (n <= 0) { done(); return; } $('evGo').textContent = 'Continue (' + n + ')'; evTimer = setTimeout(t2, 1000); };
@@ -964,10 +1079,10 @@ async function showResult() {
   setView('result'); if (has3D) R3.orbit(true);
   $('resultScreen').hidden = false;
   $('resSaved').textContent = 'Sending your result to the organisers…';
-  const rec = { id: 'r' + S.seed + '-' + Date.now().toString(36), gameId: S.gameId, repeat: !!S.repeat, team: S.team, roll: S.roll || '', phone: S.phone || '', score: r.score, years: r.years, alive: r.alive, why: r.why || '', pop: r.pop, sdg: r.sdg, cap: E.CAP_YEARS, startedAt: S.startedAt, finishedAt: new Date().toISOString(), buildings: Object.keys(S.buildings).length };
+  const rec = { id: 'r' + S.seed + '-' + Date.now().toString(36), gameId: S.gameId, repeat: !!S.repeat, team: S.team, phone: S.phone || '', score: r.score, rounds: r.rounds.map(x => +x.score.toFixed(1)), years: r.years, alive: r.alive, why: r.why || '', pop: r.pop, sdg: r.sdg, cap: E.CAP_YEARS, startedAt: S.startedAt, finishedAt: new Date().toISOString(), buildings: Object.keys(S.buildings).length };
   if (!S.saved) {
     S.saved = true;
-    sheetSend({ action: 'end', id: S.gameId, score: r.score.toFixed(1), years: r.years, fate: r.alive ? 'Thriving' : 'Dead planet: ' + (r.whyText || r.why || ''), pop: Math.round(r.pop), finishedAt: rec.finishedAt, sdg: JSON.stringify(Object.fromEntries(Object.entries(r.sdg).map(([k, v]) => [k, Math.round(v)]))) });
+    sheetSend({ action: 'end', id: S.gameId, score: r.score.toFixed(1), r1: r.rounds[0] ? r.rounds[0].score.toFixed(1) : '', r2: r.rounds[1] ? r.rounds[1].score.toFixed(1) : '', r3: r.rounds[2] ? r.rounds[2].score.toFixed(1) : '', years: r.years, fate: r.alive ? 'Thriving' : 'Dead planet: ' + (r.whyText || r.why || ''), pop: Math.round(r.pop), finishedAt: rec.finishedAt, sdg: JSON.stringify(Object.fromEntries(Object.entries(r.sdg).map(([k, v]) => [k, Math.round(v)]))) });
     const how = await saveResult(rec);
     const queued = sheetOn() && LS.get('sheetq', []).length;
     $('resSaved').textContent = how === 'shared' || (sheetOn() && !queued) ? 'Your result has been sent to the organisers. Well done!' : 'Your result is saved on this laptop and will reach the organisers when it reconnects.';
@@ -986,7 +1101,7 @@ function applySettingsText() {
 function showStart() {
   applySettingsText();
   $('pitch').textContent = C.startScreen.pitch;
-  $('startScreen').hidden = false; $('teamName').value = ''; $('teamRoll').value = ''; $('teamPhone').value = ''; $('startErr').hidden = true;
+  $('startScreen').hidden = false; $('teamName').value = ''; $('teamPhone').value = ''; $('startErr').hidden = true;
   const saved = LS.get('game', null);
   const rb = $('resumeBox');
   if (saved && saved.S && saved.S.v === 2 && !saved.S.over) {
@@ -1006,7 +1121,7 @@ function resume(st) {
     const pauses = o.phase ? E.pausesFor(S, o.phase) : [];
     while (o.target && S.year < o.target && !S.dead) {
       const p = pauses.find(p => p.year === S.year && !S.eventsDone.some(e => e.year === S.year));
-      if (p) E.resolveEvent(S, p.eventId, E.defaultChoice(p.eventId), EVENT_TEXT);
+      if (p) { const id = E.relevantEvent(S, S.schedule[p.n], p.n); E.resolveEvent(S, id, E.defaultChoice(id, S), EVENT_TEXT); }
       E.step(S, o.mode || 'dyn');
     }
     S.phase = 'plan';
@@ -1019,18 +1134,17 @@ function resume(st) {
 }
 onSubmit($('startForm'), async e => {
   e.preventDefault();
-  const name = $('teamName').value.trim(), roll = $('teamRoll').value.trim(), phone = $('teamPhone').value.replace(/\D/g, '');
+  const name = $('teamName').value.trim(), phone = digits($('teamPhone').value);
   const err = m => { $('startErr').textContent = m; $('startErr').hidden = false; };
   if (!name) return err('Enter a team name.');
-  if (!roll) return err('Enter the team lead\'s roll number.');
-  if (phone.length !== 10) return err('Enter a 10-digit phone number.');
+  if (phone.length !== 10) return err('Enter the team lead\'s 10-digit phone number.');
   $('startGo').disabled = true; $('startGo').textContent = 'Checking…';
-  const chk = await teamNameCheck(name, roll);
+  const chk = await teamNameCheck(name, phone);
   $('startGo').disabled = false; $('startGo').textContent = 'Start Level 1';
   if (chk.taken) return err('"' + name + '" is already taken by another team. Please choose another team name.');
   LS.del('game');
   $('startScreen').hidden = true;
-  newGame(name, roll, phone, chk.repeat);
+  newGame(name, phone, chk.repeat);
   if (chk.repeat) toast('Welcome back, ' + name + '. This game is marked as a repeat.');
 });
 function renderSdgPage() {
@@ -1039,6 +1153,20 @@ function renderSdgPage() {
   $('sdgGrid').innerHTML = s.goals.map(g => '<div class="sdgcard"><div class="n" style="background:' + (SDG_COL[g.n] || '#555') + '">' + g.n + '</div><div><b>' + escapeHtml(g.name) + '</b><p>' + escapeHtml(g.what) + '</p><p class="ig"><span>In the game:</span> ' + escapeHtml(g.inGame) + '</p></div></div>').join('');
   $('sdgScreen').hidden = false;
 }
+async function openBoard() {
+  $('boardScreen').hidden = false;
+  $('boardBody').innerHTML = '<tr><td colspan="6" style="color:var(--muted);padding:14px 8px">Loading…</td></tr>';
+  let local = LS.get('results', []);
+  if (db) { try { const q = await db.collection('results').get(); local = q.docs.map(d => d.data()); } catch (e) {} }
+  const sheet = await sheetBoard();
+  const rows = mergeBoard(local, sheet).sort((a, b) => b.score - a.score || b.years - a.years);
+  $('boardNote').textContent = sheet ? 'Final scores of every team, from every laptop, live from the organisers\' sheet.' : db ? 'Final scores of every team that played on this site.' : 'Results from this laptop only (the organisers\' Google Sheet is not connected).';
+  $('boardBody').innerHTML = rows.length ? rows.map((r, i) => '<tr class="' + (i === 0 ? 'top1' : '') + '"><td class="num">' + (i + 1) + '</td><td><b>' + escapeHtml(r.team) + '</b>' + (r.repeat ? ' <small class="lead">(repeat)</small>' : '') + '</td><td class="num"><b>' + (+r.score).toFixed(1) + '</b></td><td class="num">' + roundsText(r) + '</td><td class="num">' + r.years + ' / ' + (r.cap || E.CAP_YEARS) + '</td><td><span class="chip ' + (r.alive ? 'ok' : 'dead') + '">' + (r.alive ? 'Thriving' : 'Dead planet') + '</span></td></tr>').join('')
+    : '<tr><td colspan="6" style="color:var(--muted);padding:18px 8px">No finished games yet.</td></tr>';
+}
+$('startBoard').onclick = openBoard;
+$('boardRefresh').onclick = openBoard;
+$('boardClose').onclick = () => { $('boardScreen').hidden = true; };
 $('startRules').onclick = () => { $('rulesScreen').hidden = false; };
 $('startSdg').onclick = renderSdgPage;
 $('rulesSdg').onclick = () => { $('rulesScreen').hidden = true; renderSdgPage(); };
@@ -1066,6 +1194,7 @@ function openOrg() {
   if (db && !lbUnsub) lbUnsub = db.collection('results').onSnapshot(snap => { lbRows = snap.docs.map(d => Object.assign({ _id: d.id }, d.data())); renderLb(); }, () => { lbUnsub = null; lbRows = LS.get('results', []); renderLb(); });
   else if (!db) { lbRows = LS.get('results', []); renderLb(); }
   else renderLb();
+  refreshLbSheet();
 }
 function updateDbStatus() {
   const el = $('dbStatus'); if (!el) return;
@@ -1073,10 +1202,23 @@ function updateDbStatus() {
   el.textContent = !dbReady ? 'Connecting…' : (db ? 'Live leaderboard: results from every laptop appear here as teams finish.' : 'Showing results saved on this laptop.') +
     (sheetOn() ? ' Google Sheet: ' + (q ? q + ' update' + (q > 1 ? 's' : '') + ' waiting to send.' : 'connected, all sent.') : ' Google Sheet: not set up (Game settings).');
 }
+const roundsText = r => Array.isArray(r.rounds) && r.rounds.length ? r.rounds.map(v => v === '' || v == null ? '–' : Math.round(+v)).join(' · ') : '–';
+// Finished games from the Google Sheet (every laptop and phone that played), without phone numbers.
+async function sheetBoard() {
+  if (!sheetOn()) return null;
+  try { const j = await sheetCall({ action: 'board' }); return (j.rows || []).map(r => Object.assign({ src: 'sheet' }, r)); } catch (e) { return null; }
+}
+// one row per game: results stored here win over the same game from the sheet
+function mergeBoard(local, sheet) {
+  const seen = new Set(local.map(r => r.gameId).filter(Boolean));
+  return local.concat((sheet || []).filter(r => !seen.has(r.gameId)));
+}
+let lbSheet = [];
+async function refreshLbSheet() { const rows = await sheetBoard(); if (rows) { lbSheet = rows; renderLb(); } }
 function renderLb() {
-  const rows = lbRows.slice().sort((a, b) => b.score - a.score || b.years - a.years);
-  $('lbBody').innerHTML = rows.length ? rows.map((r, i) => '<tr class="' + (i === 0 ? 'top1' : '') + '"><td class="num">' + (i + 1) + '</td><td><b>' + escapeHtml(r.team) + '</b><div class="lead" style="font-size:11.5px;margin:2px 0 0">' + escapeHtml(r.roll || '') + (r.phone ? ' · ' + escapeHtml(r.phone) : '') + '</div></td><td class="num"><b>' + (+r.score).toFixed(1) + '</b></td><td class="num">' + r.years + ' / ' + (r.cap || 500) + '</td><td><span class="chip ' + (r.alive ? 'ok' : 'dead') + '">' + (r.alive ? 'Thriving' : 'Dead planet') + '</span></td><td class="num">' + (r.finishedAt ? new Date(r.finishedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '') + '</td><td><button class="btn ghost" data-del="' + escapeHtml(r._id || r.id) + '" title="Remove a test entry">Remove</button></td></tr>').join('')
-    : '<tr><td colspan="7" style="color:var(--muted);padding:18px 8px">No results yet. Each team\'s score appears here the moment they submit Level 3.</td></tr>';
+  const rows = mergeBoard(lbRows, lbSheet).sort((a, b) => b.score - a.score || b.years - a.years);
+  $('lbBody').innerHTML = rows.length ? rows.map((r, i) => '<tr class="' + (i === 0 ? 'top1' : '') + '"><td class="num">' + (i + 1) + '</td><td><b>' + escapeHtml(r.team) + '</b><div class="lead" style="font-size:11.5px;margin:2px 0 0">' + escapeHtml(r.phone || '') + (r.repeat ? ' · repeat' : '') + (r.src === 'sheet' ? ' · from the sheet' : '') + '</div></td><td class="num"><b>' + (+r.score).toFixed(1) + '</b></td><td class="num">' + roundsText(r) + '</td><td class="num">' + r.years + ' / ' + (r.cap || 500) + '</td><td><span class="chip ' + (r.alive ? 'ok' : 'dead') + '">' + (r.alive ? 'Thriving' : 'Dead planet') + '</span></td><td class="num">' + (r.finishedAt ? new Date(r.finishedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '') + '</td><td>' + (r.src === 'sheet' ? '' : '<button class="btn ghost" data-del="' + escapeHtml(r._id || r.id) + '" title="Remove a test entry">Remove</button>') + '</td></tr>').join('')
+    : '<tr><td colspan="8" style="color:var(--muted);padding:18px 8px">No results yet. Each team\'s score appears here the moment they submit Level 3.</td></tr>';
 }
 $('lbBody').addEventListener('click', e => {
   const b = e.target.closest('[data-del]'); if (!b) return;
@@ -1161,7 +1303,46 @@ if (window.ECO_CONFIG && window.ECO_CONFIG.beta) {
 /* =========================================================
    Boot
    ========================================================= */
-function loop(t) { if (has3D) R3.frame(t); requestAnimationFrame(loop); }
+// Rain showers: now and then a shower crosses the city (more often when the city is green and clean,
+// rarely in a drought). Rain refills part of the empty reservoir every year.
+const rainFx = { a: 0, target: 0, until: 0, next: Date.now() + 25000, drops: [], told: 0, cv: null };
+const calmMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function startRain(sec, strength) {
+  const r = S ? (S.rain != null ? S.rain : 1) : 1;
+  rainFx.target = strength || clamp(0.45 + 0.4 * r, 0.4, 1);
+  rainFx.until = Date.now() + (sec || 14 + Math.random() * 10) * 1000;
+  rainFx.next = rainFx.until + (45 + Math.random() * 70) * 1000 / clamp(r, 0.35, 1.2);
+  if (viewMode === 'plan' && rainFx.told < 2) { rainFx.told++; toast('Rain shower! Rain refills part of the empty reservoir every year. Forests and clean air bring more rain.'); }
+}
+function rainTick(dt) {
+  const now = Date.now(), live = S && (viewMode === 'plan' || viewMode === 'sim') && !S.dead;
+  if (live && rainFx.target === 0 && now > rainFx.next) {
+    const r = S.rain != null ? S.rain : 1;
+    if (Math.random() < clamp(r, 0.15, 1)) startRain(); else rainFx.next = now + 40000; // dry spell: try again later
+  }
+  if (now > rainFx.until || !live) rainFx.target = 0;
+  rainFx.a += (rainFx.target - rainFx.a) * Math.min(1, dt * 1.5);
+  if (rainFx.a < 0.01 && rainFx.target === 0) rainFx.a = 0;
+  if (has3D) R3.weather(rainFx.a);
+  let c = rainFx.cv;
+  if (!c) { c = rainFx.cv = document.createElement('canvas'); c.id = 'rainFx'; c.setAttribute('aria-hidden', 'true'); cv.insertAdjacentElement('afterend', c); }
+  if (!rainFx.a || calmMotion) { if (c.width) { c.width = 0; c.height = 0; } rainFx.drops.length = 0; return; }
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  const g = c.getContext('2d'); g.clearRect(0, 0, w, h);
+  const want = Math.round(rainFx.a * Math.min(420, w * h / 3500));
+  while (rainFx.drops.length < want) rainFx.drops.push({ x: Math.random() * (w + 200) - 100, y: Math.random() * h - h, v: 700 + Math.random() * 500, l: 10 + Math.random() * 14 });
+  if (rainFx.drops.length > want) rainFx.drops.length = want;
+  g.strokeStyle = 'rgba(205,225,245,' + (0.25 + 0.35 * rainFx.a).toFixed(2) + ')'; g.lineWidth = 1.2; g.beginPath();
+  for (const d of rainFx.drops) {
+    d.y += d.v * dt; d.x -= d.v * dt * 0.18;
+    if (d.y > h) { d.y = -d.l - Math.random() * 60; d.x = Math.random() * (w + 200) - 100; }
+    g.moveTo(d.x, d.y); g.lineTo(d.x + d.l * 0.18, d.y - d.l);
+  }
+  g.stroke();
+}
+let lastLoop = 0;
+function loop(t) { const dt = Math.min(0.1, lastLoop ? (t - lastLoop) / 1000 : 0.016); lastLoop = t; if (has3D) R3.frame(t); try { rainTick(dt); } catch (_) { } requestAnimationFrame(loop); }
 window.addEventListener('resize', () => { if (has3D) { R3.resize(); layoutInsets(); } });
 if (!has3D) { const n = document.createElement('div'); n.className = 'no3d'; n.textContent = 'This browser cannot show the 3D city. Please use an up-to-date Chrome, Edge or Firefox.'; $('app').appendChild(n); }
 buildLegend(); renderTabs();

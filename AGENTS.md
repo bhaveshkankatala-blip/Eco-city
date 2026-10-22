@@ -6,6 +6,15 @@ Read this before changing code. It is meant to save every agent (Claude, Gemini,
 - **Live build:** a Claude artifact. `dist/index.html` is what gets published.
 - **Game rules and numbers:** [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)
 
+## 0. What changed in v6 (branch `v6`)
+
+- **Workers:** `Eco.addBuilding(..., workers)` and `Eco.setWorkers(S, id, n)` set a building's crew (clamped to min–max per block). Output is proportional to the crew (`_eff = _w / max`). `Eco.autoAssign(S, flows)` gives unemployed adults to understaffed buildings; `step()` calls it every year. UI: crew dialog on placement (`askCrew`), workers panel (`openWorkers`), crew slider in the inspector.
+- **Crises hit at once:** event `impact` can carry `killPct`, `waterPct`, `foodStorePct`, `money`, `destroy`. `resolveEvent` returns an `impact` summary and pushes `S.marks` (drawn as red/blue lines on the live graphs). Choices can have `need` (disabled when the city cannot afford them); `relevantEvent` swaps events that make no sense for the city.
+- **Water:** reservoir 10,000, refilled by `0.2 × empty space × rain` every year; rain showers are drawn in `game.js` (`rainTick`, overlay canvas) and darken the sky (`R3.weather`).
+- **Scoring:** round weights 20/40/40 (`ERA_W`), Level 1 budget ₹50 L, upgrade block cost `cost × (0.9 + 0.3 × blocks)`, SDG 11 = homes 50% + road access 25% + green blocks per 500 people 25%.
+- **Login and results:** team name + lead phone only. Results go to the Google Sheet (`tools/google-sheet/Code.gs`, action `board` for the public leaderboard). Hosting: `netlify.toml`, `npm run build:site`, [docs/HOSTING.md](docs/HOSTING.md).
+- **Input:** touchpad two-finger scroll pans, pinch zooms, mouse wheel zooms; the ⇅ map button flips directions (saved in `localStorage['eco-camflip']`).
+
 ## 1. Ground rules
 
 1. **No dependencies and no build tools beyond Node.** The game must stay one self-contained HTML file. The artifact host only allows Google Fonts and a few script CDNs; everything else is blocked, so don't add images, fonts or libraries from other hosts. Draw assets in code.

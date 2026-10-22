@@ -25,8 +25,8 @@ You can also open `dist/index.html` straight from the file system by double-clic
 
 ## Playing
 
-1. Enter a team name and start Level 1.
-2. Pick a building from the bar at the bottom, then click a block on the map. A green see-through preview shows where it will go; red means it can't go there, and the tooltip says why.
+1. Enter a team name and the team lead's phone number, then start Level 1.
+2. Pick a building from the bar at the bottom, then click a block on the map. A green see-through preview shows where it will go; red means it can't go there, and the tooltip says why. Farms, plants and factories ask how many workers to give them (fewer workers, less output). Workers can be moved any time (**Assign workers** under Jobs).
 3. Click **Finish level** (or let the timer run out). Time jumps forward on the live island.
 4. After Level 3, the city runs on its own until it dies or reaches the year limit. The team sees only its own result.
 
@@ -34,17 +34,18 @@ You can also open `dist/index.html` straight from the file system by double-clic
 |---|---|---|
 | Move the map | drag | W A S D / arrow keys |
 | Rotate | right-drag or Shift+drag | Q / E |
-| Zoom | scroll wheel | + / − |
+| Zoom | scroll wheel, or pinch on a touchpad | + / − |
+| Move the map (touchpad) | two-finger scroll | |
 | Cancel a tool | right-click | Esc |
 
-The buttons in the bottom-right corner rotate, zoom and re-centre the view.
+The buttons in the bottom-right corner rotate, zoom and re-centre the view. The ⇅ button flips the scroll and drag direction for anyone who finds the touchpad backwards.
 
 **Organisers:** the *Organiser* button (or the *Organisers* link on the start screen) opens a PIN-protected panel. It has the live leaderboard, the level timers, the 5–10 year first jump, the 500/1000 year cap, the PIN itself, and a reset for the current laptop. **The default PIN is `2026` and it is visible in this public repository: change it in the panel before the event.** The new PIN is stored in the shared results store, not in the code.
 
 ## Tests
 
 ```bash
-npm test                        # syntax check + 9 simulation tests (Node built-in test runner)
+npm test                        # syntax check + simulation tests (Node built-in test runner)
 ```
 
 There is also an optional browser playthrough. It plays all three levels, runs every time jump, reaches the result screen and fails on any page error:
@@ -58,6 +59,8 @@ python tests/e2e/playthrough.py            # or: python tests/e2e/playthrough.py
 Screenshots go to `tests/e2e/out/`. On a machine without a GPU it uses software WebGL and takes several minutes.
 
 ## Where it runs and how results are saved
+
+- **Hosted on Netlify (ready, not deployed).** See [docs/HOSTING.md](docs/HOSTING.md). Every device sends results straight to the organisers' Google Sheet ([tools/google-sheet](tools/google-sheet/SETUP.md)); `/leaderboard` and the in-game **Leaderboard** button show them.
 
 - **Hosted as a Claude artifact (how it runs at the event).** The page uses the artifact's shared database (`window.claude.use('db')`). Each finished game is written to `results/<id>` and settings to `config/settings`, so every laptop feeds one leaderboard. Laptops must be signed in to the club's Claude account for their results to be saved there.
 - **Opened anywhere else** (a local file or `npm start`). Everything works except the shared leaderboard. Results and settings are kept in that browser's `localStorage` and are uploaded automatically if the page is later opened where the shared database is available.
@@ -73,7 +76,10 @@ src/
   gl.js        small WebGL 2 engine: shaders, shadows, fog, instancing, sprites (window.GL3)
   world.js     the 3D island: terrain, river, mountains, forests, clouds, building models, camera (window.R3)
   game.js      game flow and HUD: levels, timers, panels, input, time jumps, results, organiser panel
-scripts/       build.js (src -> dist/index.html), serve.js (local server)
+  leaderboard.html  public scoreboard page (reads the Google Sheet)
+scripts/       build.js (src -> dist/index.html; --site -> site/ for Netlify), serve.js (local server)
+tools/         google-sheet/ (Apps Script for the organisers' live sheet)
+netlify.toml   Netlify build settings (publishes site/)
 tests/         engine.test.js (Node), e2e/playthrough.py (browser)
 docs/          GAME_DESIGN.md, screenshots, design-review/ (brief prepared for a Gemini design review)
 AGENTS.md      handbook for AI agents and new developers (start here before changing code)

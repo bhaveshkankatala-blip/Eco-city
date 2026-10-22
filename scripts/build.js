@@ -2,6 +2,7 @@
 // Builds the single-file game: src/index.html + the four scripts -> dist/index.html
 // Usage: node scripts/build.js            -> dist/index.html (production)
 //        node scripts/build.js --test     -> dist/test.html (exposes window.__t for automated tests)
+//        node scripts/build.js --site     -> site/index.html + site/leaderboard.html (what Netlify publishes)
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -10,11 +11,12 @@ const root = path.join(__dirname, '..');
 const src = p => fs.readFileSync(path.join(root, 'src', p), 'utf8');
 const test = process.argv.includes('--test');
 const beta = process.argv.includes('--beta'); // review build: adds the Beta feedback button
+const site = process.argv.includes('--site'); // hosting build (Netlify): site/index.html + site/leaderboard.html
 
 let html = src('index.html');
 let game = src('game.js');
 if (test) {
-  game = game.replace('/*TEST*/', 'window.__t={get S(){return S}, set S(v){S=v}, E, refresh, finishLevel, ui, clickTile, setHover, goLevel, showResult, showEvent};');
+  game = game.replace('/*TEST*/', 'window.__t={get S(){return S}, set S(v){S=v}, E, refresh, finishLevel, ui, clickTile, setHover, goLevel, showResult, showEvent, startRain, openWorkers, setFlip};');
 }
 // engine.js (simulation) + gl.js (WebGL engine) + world.js (3D scene) share one script tag, game.js (UI) the next
 const engine = [src('engine.js'), src('gl.js'), src('world.js')].join('\n');
@@ -35,8 +37,16 @@ if (!html.includes('/*ENGINE*/') || !html.includes('/*GAME*/')) throw new Error(
 // use a function replacer so "$&" etc. inside the code are not treated as patterns
 html = html.replace('/*ENGINE*/', () => engine).replace('/*GAME*/', () => game);
 
-const outDir = path.join(root, 'dist');
+const outDir = path.join(root, site ? 'site' : 'dist');
 fs.mkdirSync(outDir, { recursive: true });
 const out = path.join(outDir, test ? 'test.html' : beta ? 'beta.html' : 'index.html');
 fs.writeFileSync(out, html);
 console.log('Built ' + path.relative(root, out) + ' (' + Math.round(html.length / 1024) + ' KB)');
+// public leaderboard page (reads finished games from the Google Sheet); always built next to the game
+{
+  const cfgJs = fs.existsSync(cfg) ? 'window.ECO_CONFIG=' + JSON.stringify(JSON.parse(fs.readFileSync(cfg, 'utf8'))).replace(/</g, '\\u003c') + ';' : '';
+  const lb = src('leaderboard.html');
+  if (!lb.includes('/*CONFIG*/')) throw new Error('src/leaderboard.html is missing the /*CONFIG*/ placeholder');
+  fs.writeFileSync(path.join(outDir, 'leaderboard.html'), lb.replace('/*CONFIG*/', () => cfgJs));
+  console.log('Built ' + path.relative(root, path.join(outDir, 'leaderboard.html')));
+}

@@ -1,0 +1,23 @@
+# Netlify hosting for EcoCity (not deployed yet: deploy only when the organisers say so).
+# Netlify runs the build (plain Node, no packages to install) and publishes the site/ folder:
+#   /                 the game (one self-contained page)
+#   /leaderboard.html live scores from the organisers' Google Sheet
+[build]
+  command = "node scripts/build.js --site"
+  publish = "site"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# always fetch the latest game (a fix pushed on event day reaches every laptop on reload)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[redirects]]
+  from = "/leaderboard"
+  to = "/leaderboard.html"
+  status = 200

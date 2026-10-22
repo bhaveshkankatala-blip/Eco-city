@@ -31,7 +31,7 @@ async def run_jump(pg, shot, tag):
         if await pg.evaluate(VIS, 'eventScreen'):
             n += 1
             if n == 1: await shot(f'{tag}-event')
-            await pg.click('#evChoices button >> nth=0'); await pg.wait_for_timeout(800)
+            await pg.click('#evChoices button:not([disabled]) >> nth=0'); await pg.wait_for_timeout(800)
             if n == 1: await shot(f'{tag}-event-outcome')
             await pg.evaluate("()=>{const b=document.getElementById('evGo');if(b&&!document.getElementById('eventScreen').hidden)b.click()}"); continue
         if await pg.evaluate(VIS, 'simNext'):
@@ -73,11 +73,21 @@ async def steps(pg, shot):
         await pg.goto((OUT / 'page.html').as_uri()); await pg.wait_for_timeout(3000)
         await shot('0-start')
         await pg.click('#startSdg'); await pg.wait_for_timeout(800); await shot('0b-sdg-page'); await pg.click('#sdgClose')
-        await pg.fill('#teamName', 'Test Team'); await pg.fill('#teamRoll', '23CSB0A12'); await pg.fill('#teamPhone', '98765 43210')
+        await pg.fill('#teamName', 'Test Team'); await pg.fill('#teamPhone', '98765 43210')
         await pg.click('#startGo'); await pg.wait_for_timeout(4000)
         await shot('1a-guide')
         await pg.click('#guideSkip')
         await pg.evaluate(PUT, [['foodFarm', 6], ['coalPlant', 1, 2], ['goldFactory', 1, 1], ['cashFarm', 1]])
+        # build one farm the way a player does: the crew dialog must ask how many workers
+        await pg.evaluate("""()=>{const t=window.__t,S=t.S;document.querySelector('[data-tab=agri]').click();
+          setTimeout(()=>{document.querySelector('[data-type=foodFarm]').click();const i=S.tiles.findIndex(x=>x.t==='grass'&&!x.b&&t.E.inLevel(1,x.x,x.y));t.clickTile(i);},100)}""")
+        await pg.wait_for_timeout(2000)
+        assert await pg.evaluate(VIS, 'crewScreen'), 'crew dialog did not open'
+        await pg.evaluate("()=>{const r=document.getElementById('cwRange');r.value=r.min;r.dispatchEvent(new Event('input'))}")
+        await pg.wait_for_timeout(800); await shot('1a2-crew-dialog'); await pg.click('#cwOk')
+        await pg.evaluate("()=>{window.__t.ui.tool=null;window.__t.openWorkers(null)}"); await pg.wait_for_timeout(1200); await shot('1a3-workers-panel')
+        await pg.evaluate("()=>document.getElementById('raDone').click()")
+        await pg.evaluate("()=>window.__t.startRain(30,1)"); await pg.wait_for_timeout(4000); await shot('1a4-rain')
         # pick the coal factory tool and hover a coal block to show the size/path picker
         await pg.evaluate("""()=>{const t=window.__t,S=t.S;document.querySelector('[data-tab=energy]').click();
           setTimeout(()=>{document.querySelector('[data-type=coalPlant]').click();const i=S.tiles.findIndex(x=>x.t==='coal'&&!x.b&&t.E.inLevel(1,x.x,x.y));t.ui.size=2;t.setHover(i);},100)}""")
@@ -86,6 +96,8 @@ async def steps(pg, shot):
         await pg.wait_for_timeout(1500); await shot('1c-level1-block-info')
         await pg.evaluate(FINISH); await pg.wait_for_timeout(1500)
         await run_jump(pg, shot, '2')
+        assert await pg.evaluate(VIS, 'unlockScreen'), 'Level 2 unlock popup missing'
+        await shot('2b-level2-unlocks'); await pg.click('#unOk')
         await pg.evaluate(PUT, [['solar', 3], ['dam', 1], ['apartment', 1], ['community', 2], ['school', 1], ['waterPlant', 1], ['foodFarm', 3], ['road', 8], ['wind', 2]])
         # open a hut and a coal factory: upgrade cards
         await pg.evaluate("""()=>{const t=window.__t,S=t.S;const h=Object.values(S.buildings).find(b=>b.type==='hut');t.E.upgrade(S,h.id,'solar');
@@ -93,12 +105,16 @@ async def steps(pg, shot):
         await pg.wait_for_timeout(2500); await shot('3-level2-upgrade-cards')
         await pg.evaluate(FINISH); await pg.wait_for_timeout(1500)
         n2 = await run_jump(pg, shot, '4')
+        assert await pg.evaluate(VIS, 'unlockScreen'), 'Level 3 unlock popup missing'
+        await shot('4b-level3-unlocks'); await pg.click('#unOk')
         await pg.evaluate(PUT, [['battery', 1], ['granary', 2], ['hospital', 1], ['itPark', 1], ['forest', 8], ['foodFarm', 2], ['wind', 2], ['recycling', 1], ['waterPlant', 1], ['park', 2], ['road', 6]])
         await pg.wait_for_timeout(3000); await shot('5-level3')
         await pg.evaluate(FINISH); await pg.wait_for_timeout(1500)
         n3 = await run_jump(pg, shot, '6')
         await pg.wait_for_timeout(2000); await shot('7-result')
         score = await pg.evaluate("()=>document.querySelector('#resRing text').textContent")
+        await pg.click('#resDone'); await pg.wait_for_timeout(1500)
+        await pg.click('#startBoard'); await pg.wait_for_timeout(1500); await shot('8-leaderboard')
         return score, n2, n3
 
 

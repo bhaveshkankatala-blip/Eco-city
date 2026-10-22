@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node scripts/build.js",
     "build:test": "node scripts/build.js --test",
+    "build:site": "node scripts/build.js --site",
     "start": "node scripts/build.js && node scripts/serve.js",
     "check": "node --check src/engine.js && node --check src/gl.js && node --check src/world.js && node --check src/game.js",
     "test": "npm run check && node --test"

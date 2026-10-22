@@ -24,13 +24,15 @@ window.ECO_CONTENT = {
     idle: ['Quiet day on the island', 'Chai, cricket and gossip on Neem Street', 'Council meets, nothing decided', 'Monsoon forecast: normal, for now', 'The island waits to see what you build'],
   },
   tutorial: [
-    { title: 'Pick a building', text: 'Everything you can build is in the bar at the bottom, grouped by what it does. Hover a card to read it in full. Start with Food Crops: farms are free in Level 1, everything else comes out of your ₹35 L budget.', target: 'build-bar' },
+    { title: 'Pick a building', text: 'Everything you can build is in the bar at the bottom, grouped by what it does. Hover a card to read it in full. Start with Food Crops: farms are free in Level 1, everything else comes out of your ₹50 L budget.', target: 'build-bar' },
     { title: 'Place it on the land', text: 'Click any green block inside the yellow border. A see-through preview shows where it will go.', target: 'map' },
+    { title: 'Choose its workers', text: 'Each farm, plant or factory asks how many workers to give it. Fewer workers means less of everything it makes: half the crew, half the output. Move workers any time with "Assign workers" under Jobs, or Inspect a building. New workers from a growing city fill empty places on their own.', target: 'stats' },
     { title: 'Plants and mines on resources', text: 'Pick a coal plant or a mine and its blocks are marked in red. Choose how many blocks it covers, and the shape with "Next path". Every card says how many workers it needs.', target: 'build-bar' },
+    { title: 'Upgrade what you have', text: 'From Level 2 you can upgrade: open "Inspect & demolish", choose Inspect and click a building. Plants, mines and factories grow onto the next resource block (each step costs more and needs more workers, water and energy). Homes can add rooftop solar and rainwater tanks.', target: 'build-bar' },
     { title: 'Read your city, then finish', text: 'The numbers on the left are this year\'s reality. When you are ready, press Finish. After this, the game will not tell you what to build.', target: 'finish' },
   ],
   sdg: {
-    intro: 'Your city is scored on these 13 UN Sustainable Development Goals in three rounds: after Level 1 (30%), after Level 2 (35%) and after Level 3 (35%). Each round also loses points for deaths a better city would have prevented and for losing money. A city that feeds, houses, heals and employs its people for centuries, without poisoning its air or using up its land, scores highest.',
+    intro: 'Your city is scored on these 13 UN Sustainable Development Goals in three rounds: after Level 1 (20%), after Level 2 (40%) and after Level 3 (40%). Each round also loses points for deaths a better city would have prevented and for losing money. A city that feeds, houses, heals and employs its people for centuries, without poisoning its air or using up its land, scores highest.',
     goals: [
       { n: 1, name: 'No Poverty', what: 'Nobody lives in poverty.', inGame: 'Jobs for everyone who can work, a city that earns more than it spends, and no debt.' },
       { n: 2, name: 'Zero Hunger', what: 'Everyone has enough to eat, every year.', inGame: 'Food grown (plus stored) compared with what your people eat.' },
@@ -40,7 +42,7 @@ window.ECO_CONTENT = {
       { n: 7, name: 'Clean Energy', what: 'Affordable, clean power for all.', inGame: 'Enough power for the city, and how much of it is clean.' },
       { n: 8, name: 'Decent Work', what: 'Jobs for everyone who can work.', inGame: 'Share of workers with jobs, and a city that is not in debt.' },
       { n: 9, name: 'Industry & Infrastructure', what: 'Roads and industry that connect people.', inGame: 'Share of your buildings next to a road.' },
-      { n: 11, name: 'Sustainable Cities', what: 'Safe homes and green, lasting cities.', inGame: 'Homes for everyone, green space, and how long your city lasts.' },
+      { n: 11, name: 'Sustainable Cities', what: 'Safe homes and green, lasting cities.', inGame: 'Homes for everyone (half the score), roads that reach every building (a quarter), and parks and forests near people: one green block for every 500 people (a quarter).' },
       { n: 12, name: 'Responsible Consumption', what: 'Using resources without using them up.', inGame: 'Income that does not depend on mines that run out, and food stored for bad years.' },
       { n: 13, name: 'Climate Action', what: 'Cutting pollution and its effects.', inGame: 'Low pollution, year after year.' },
       { n: 15, name: 'Life on Land', what: 'Protecting forests and green land.', inGame: 'Forests you plant (parks count half), land you leave wild, and how little ground you dig up.' },
@@ -52,7 +54,7 @@ window.ECO_CONTENT = {
     headlineDecline: 'Your city shrank',
     headlineStable: 'Your city held steady',
     causes: {
-      hunger: 'not enough food', thirst: 'not enough water', poverty: 'poverty: no work', slums: 'overcrowded slums', pollution: 'polluted air', old: 'old age and natural causes',
+      crisis: 'crises (heat, disease, storms)', hunger: 'not enough food', thirst: 'not enough water', poverty: 'poverty: no work', slums: 'overcrowded slums', pollution: 'polluted air', old: 'old age and natural causes',
     },
   },
   endings: {
