@@ -460,7 +460,8 @@ $('cwOk').onclick = () => {
 
 /* Build bar */
 // grouped by what each building does, not by the level it unlocks in
-$('unOk') && ($('unOk').onclick = () => { $('unlockScreen').hidden = true; });
+// the level clock does not run while teams read what is new
+$('unOk') && ($('unOk').onclick = () => { if ($('unlockScreen').hidden) return; $('unlockScreen').hidden = true; if (S && S.phase === 'plan' && ui.unlockAt) { S.deadline += Math.min(120000, Date.now() - ui.unlockAt); persist(); } ui.unlockAt = 0; });
 const TABS = [
   ['agri', 'Food', ['foodFarm', 'cashFarm', 'granary']],
   ['energy', 'Energy', ['coalPlant', 'nuclear', 'solar', 'wind', 'dam', 'battery']],
@@ -849,7 +850,7 @@ function showUnlocks(l) {
   }).join('');
   $('unUp').innerHTML = l === 2 ? '<b>Upgrades are open.</b> Choose <b>Inspect &amp; demolish → Inspect</b> and click a building: plants and mines can grow onto the next resource block (each step costs more and needs more workers), and homes can get rooftop solar and rainwater harvesting.'
     : '<b>Remember:</b> you can still upgrade plants, mines and homes (Inspect a building), and move workers between buildings with <b>Assign workers</b> in the Jobs panel.';
-  $('unlockScreen').hidden = false;
+  $('unlockScreen').hidden = false; ui.unlockAt = Date.now();
 }
 
 /* Time jumps, with checkpoint events */
