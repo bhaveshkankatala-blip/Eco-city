@@ -59,6 +59,7 @@ window.ECO_CONTENT = {
   },
   endings: {
     thriving: { title: 'Still standing', text: 'Five centuries later, your island is still home to thousands. The planners of today did right by the people of tomorrow.' },
+    survived: { title: 'Still here, barely', text: 'The island made it to the end, but it only survived. It did not thrive.' },
     dead: { title: 'A dead planet', text: 'The streets are silent. What you built could not carry the people who came after you.' },
     deathReasons: {
       population: 'Nobody was left.',

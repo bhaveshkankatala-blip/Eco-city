@@ -67,7 +67,7 @@ tr:last-child td { border-bottom: 0; }
     }).join('');
     $('rows').innerHTML = rows.length ? rows.map(function (r, i) {
       var rd = r.rounds || [];
-      return '<tr><td class="num">' + (i + 1) + '</td><td><b>' + esc(r.team) + '</b>' + (r.repeat ? ' <span class="rep">(repeat)</span>' : '') + '</td><td class="num"><b>' + (+r.score).toFixed(1) + '</b></td><td class="num">' + r0(rd[0]) + '</td><td class="num">' + r0(rd[1]) + '</td><td class="num">' + r0(rd[2]) + '</td><td class="num">' + esc(r.years) + '</td><td><span class="chip ' + (r.alive ? 'ok' : 'dead') + '">' + (r.alive ? 'Thriving' : 'Dead planet') + '</span></td></tr>';
+      return '<tr><td class="num">' + (i + 1) + '</td><td><b>' + esc(r.team) + '</b>' + (r.repeat ? ' <span class="rep">(repeat)</span>' : '') + '</td><td class="num"><b>' + (+r.score).toFixed(1) + '</b></td><td class="num">' + r0(rd[0]) + '</td><td class="num">' + r0(rd[1]) + '</td><td class="num">' + r0(rd[2]) + '</td><td class="num">' + esc(r.years) + '</td><td><span class="chip ' + (r.alive ? 'ok' : 'dead') + '">' + (r.alive ? 'Alive at the end' : 'Dead planet') + '</span></td></tr>';
     }).join('') : '<tr><td colspan="8" class="msg">No finished games yet. Scores appear here the moment a team submits Level 3.</td></tr>';
   }
   function load() {

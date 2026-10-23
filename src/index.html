@@ -187,6 +187,7 @@ h1, h2, h3 { font-family: var(--f-display); font-weight: 600; margin: 0; text-wr
 .fate { padding: 10px 14px; border-radius: 10px; font-size: 14px; }
 .fate.ok { background: rgba(98,211,108,.14); border: 1px solid rgba(98,211,108,.4); }
 .fate.dead { background: rgba(239,91,76,.14); border: 1px solid rgba(239,91,76,.45); }
+.fate.meh { background: rgba(245,197,68,.12); border: 1px solid rgba(245,197,68,.45); }
 
 /* organiser */
 table.lb { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -210,7 +211,7 @@ body { background: #9cc9e6; }
 .startBtns { flex-wrap: wrap; }
 .startBtns #startGo { flex: 1 1 100%; }
 .startBtns .ghost { flex: 1 1 0; min-width: 0; padding-left: 8px; padding-right: 8px; white-space: nowrap; }
-#rainFx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+#rainFx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; } /* right after the map in the page, so every panel stays above the rain */
 .tag3d { position: absolute; left: 0; top: 0; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: rgba(20, 30, 38, .9); color: #ff8b7d; border: 1.5px solid rgba(239, 91, 76, .8); box-shadow: 0 3px 8px rgba(0,0,0,.3); }
 .tag3d.used { color: #e7cfa5; border-color: rgba(200, 170, 120, .8); }
 .floaty { position: absolute; transform: translate(-50%, -100%); display: grid; justify-items: center; gap: 2px; white-space: nowrap; animation: floatUp 1.8s ease-out forwards; }
