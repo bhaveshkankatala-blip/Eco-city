@@ -137,7 +137,15 @@ function newGame(team, phone, repeat) {
 const cv = $('map');
 const has3D = window.R3 && R3.init(cv, $('tags'));
 let viewMode = 'start';
+// side panels end above the build bar on every screen size (their contents scroll)
+function fitPanels() {
+  const bt = $('build').getBoundingClientRect().top;
+  if (!(bt > 0)) return;
+  ['stats', 'right'].forEach(id => { const el = $(id); if (!el) return; const t = el.getBoundingClientRect().top; if (t > 0) el.style.maxHeight = Math.max(120, Math.floor(bt - t - 10)) + 'px'; });
+}
+window.addEventListener('resize', fitPanels);
 function layoutInsets() {
+  fitPanels();
   if (!has3D) return;
   const app = $('app').getBoundingClientRect(), vis = el => el && !el.hidden && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0;
   const top = $('top').getBoundingClientRect();
@@ -926,13 +934,23 @@ function drawSim(opt, y0) {
     const lr = all[all.length - 1]; g.fillStyle = col; g.beginPath(); g.arc(X(lr.year), Y(lr[k]), 7, 0, 7); g.fill();
   });
   // crises and decisions on the timeline: red for crises, blue for decisions; the dip after them is their effect
-  (S.marks || []).forEach((m, mi) => {
+  // labels never overlap: each goes in the first of 4 rows with room for it, otherwise only its line is drawn
+  const rows = [[], [], [], []];
+  g.font = '19px Lexend, sans-serif'; g.textAlign = 'left';
+  (S.marks || []).forEach(m => {
     if (m.year < x0 || m.year > x1) return;
     const x = X(m.year);
     g.strokeStyle = m.shock ? 'rgba(255,110,95,.9)' : 'rgba(120,190,255,.8)'; g.lineWidth = 3; g.setLineDash([6, 6]);
     g.beginPath(); g.moveTo(x, pad); g.lineTo(x, h - pad); g.stroke(); g.setLineDash([]);
-    g.fillStyle = m.shock ? '#ff9c90' : '#9cd0ff'; g.font = '20px Lexend, sans-serif'; g.textAlign = 'left';
-    g.fillText(m.title + (m.people < 0 ? ' (' + fmt(m.people) + ')' : ''), Math.min(x + 6, w - 260), pad + 18 + (mi % 3) * 22);
+    const text = m.title + (m.people < 0 ? ' (' + fmt(m.people) + ')' : '');
+    const tw = g.measureText(text).width + 12;
+    const lx = Math.max(pad, Math.min(x + 6, w - pad - tw));
+    const row = rows.findIndex(r => r.every(([a, b]) => lx + tw < a || lx > b));
+    if (row < 0) return;
+    rows[row].push([lx, lx + tw]);
+    const ly = pad + 6 + row * 26;
+    g.fillStyle = 'rgba(8,22,31,.88)'; g.fillRect(lx - 4, ly, tw, 24);
+    g.fillStyle = m.shock ? '#ff9c90' : '#9cd0ff'; g.fillText(text, lx + 2, ly + 18);
   });
   if (!opt.final) { g.strokeStyle = 'rgba(255,255,255,.35)'; g.setLineDash([8, 8]); g.beginPath(); g.moveTo(X(y0), pad); g.lineTo(X(y0), h - pad); g.stroke(); g.setLineDash([]); }
 }
