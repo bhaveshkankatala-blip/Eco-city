@@ -237,10 +237,10 @@ void main(){
   // night: warm light pools from street lamps and windows
   if(uNight>0.02 && uMode!=8 && uMode!=1){
     vec3 pl=vec3(0.0);
-    for(int i=0;i<40;i++){ if(i>=uLN) break; vec3 d=uL[i].xyz-vW; float r=length(d); float att=uL[i].w*smoothstep(1.9,0.15,r)/(1.0+r*r*3.5); pl+=vec3(1.0,0.72,0.42)*att*(0.45+0.55*max(dot(n,d/max(r,0.001)),0.0)); }
+    for(int i=0;i<40;i++){ if(i>=uLN) break; vec3 d=uL[i].xyz-vW; float r=length(d); if(r>1.9) continue; float att=uL[i].w*smoothstep(1.9,0.15,r)/(1.0+r*r*3.5); pl+=vec3(1.0,0.72,0.42)*att*(0.45+0.55*max(dot(n,d/max(r,0.001)),0.0)); }
     col+=base*pl*uNight*3.6;
   }
-  if((uMode==1||uMode==8) && uNight>0.02){ vec3 pl=vec3(0.0); for(int i=0;i<40;i++){ if(i>=uLN) break; vec3 d=uL[i].xyz-vW; float r=length(d); pl+=vec3(1.0,0.75,0.45)*uL[i].w*smoothstep(1.8,0.2,r)/(1.0+r*r*3.0); } col+=pl*uNight*0.35; }
+  if((uMode==1||uMode==8) && uNight>0.02){ vec3 pl=vec3(0.0); for(int i=0;i<40;i++){ if(i>=uLN) break; vec3 d=uL[i].xyz-vW; float r=length(d); if(r>1.8) continue; pl+=vec3(1.0,0.75,0.45)*uL[i].w*smoothstep(1.8,0.2,r)/(1.0+r*r*3.0); } col+=pl*uNight*0.35; }
   if(uMode==1||uMode==8){ vec3 v=normalize(uCam-vW); vec3 h=normalize(v+uSun); col+=uSunCol*pow(max(dot(n,h),0.0),70.0)*0.55*sh; a=uAlpha; }
   float f=smoothstep(uFogN,uFogF,length(vW-uCam));
   col=mix(col,uFog,f);

@@ -90,7 +90,7 @@ AGENTS.md      handbook for AI agents and new developers (start here before chan
 | Problem | Fix |
 |---|---|
 | "This browser cannot show the 3D city" | The game needs WebGL 2. Use an up-to-date Chrome, Edge or Firefox and turn on hardware acceleration in the browser settings. |
-| Map is slow or choppy | Close other tabs, plug the laptop in (battery saver throttles the GPU), or make the window smaller. |
+| Map is slow or choppy, or the laptop gets hot | The island is redrawn at most 30 times a second (60 while you move the camera) and slows to 8 behind popups. On an older or hot laptop: *Organiser → Game settings → Graphics on this laptop → Battery saver*. Also close other tabs and plug the laptop in. |
 | Leaderboard is empty / says "Offline" | Results are shared only when the game runs as the Claude artifact on a signed-in laptop. Saved results upload on the next online open. |
 | `npm start` says port in use | Run `node scripts/serve.js 8081` (any free port). |
 | Fonts look plain | Google Fonts could not load (no internet). The game falls back to system fonts. |

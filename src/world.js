@@ -344,7 +344,8 @@ let world = {};           // static per-game meshes
 let bmap = new Map();     // building id -> entry
 let roadsMesh = null, depMesh = null, uMesh = null, propsMesh = null, hiMesh = null, gridMesh = null, dashMesh = null;
 let ghost = null, ghostKey = '';
-let quality = 1.75; const perf = { n: 0, sum: 0 };
+// render resolution: never above 1.25x (sharp enough, far cheaper on laptop GPUs); drops on slow laptops
+let quality = 1.25; const perf = { n: 0, sum: 0, budget: 0 };
 let sig = { roads: '', dep: '', props: '', river: '', lights: '' };
 let curLevel = 1;
 let particles = [], smog = [];
@@ -914,7 +915,7 @@ function computeEnv(time) {
     if (!e.lights) e.lights = new Float32Array(160);
     if (time - (lightPick.t || 0) > 500 || lightPick.n !== nightLights.length) {
       lightPick.t = time; lightPick.n = nightLights.length;
-      lightPick.list = nightLights.map(L => [L, (L[0] - cam.tx) ** 2 + (L[2] - cam.tz) ** 2 - (L[8] ? 0 : 0.5)]).sort((a, b) => a[1] - b[1]).slice(0, 40).map(a => a[0]);
+      lightPick.list = nightLights.map(L => [L, (L[0] - cam.tx) ** 2 + (L[2] - cam.tz) ** 2 - (L[8] ? 0 : 0.5)]).sort((a, b) => a[1] - b[1]).slice(0, 16).map(a => a[0]);
     }
     let k = 0;
     for (const L of lightPick.list) { if (L[8]) { const b = S.buildings[L[8]]; if (!b || (B[b.type].min && !(b._eff > 0))) continue; } e.lights.set([L[0], L[1] + 0.12, L[2], L[8] ? 0.8 : 1.1], k * 4); k++; }
@@ -1105,6 +1106,8 @@ const R3 = {
     labels.forEach(l => l.el.remove()); labels.clear();
     if (S) { const st = S; R3.load(st); R3.setLevel(curLevel || st.level, true); R3.resize(); }
   },
+  quality() { return quality; },
+  setQuality(q) { quality = q; perf.n = 0; perf.sum = 0; R3.resize(); },
   resize() {
     if (!cv) return;
     DPR = Math.min(quality, window.devicePixelRatio || 1);
@@ -1182,14 +1185,16 @@ const R3 = {
   },
   puff(tiles) { puffAt(tiles, 12); },
   _dbg() { return { hi: !!hiMesh, hiVis: hiMesh && hiMesh.visible, ghost: !!ghost, gk: ghostKey, hover: hoverState, n: scene.meshes.length, inScene: ghost ? scene.meshes.indexOf(ghost) : -2 }; },
-  frame(time) {
+  // budget: the frame interval the caller is aiming for (s), or 0 when it is deliberately slow (popups)
+  frame(time, budget) {
     if (!eng || !S || R3.lost) return;
-    const dt = Math.min(0.1, lastT ? (time - lastT) / 1000 : 0.016); lastT = time;
-    // slow laptop: render fewer pixels so the browser stays responsive
-    if (document.visibilityState === 'visible') {
-      perf.n++; perf.sum += dt;
-      if (perf.sum > 4) { const avg = perf.sum / perf.n; perf.n = 0; perf.sum = 0; if (avg > 0.045 && quality > 0.75) { quality = Math.max(0.75, quality - 0.35); R3.resize(); } }
-    }
+    const raw = lastT ? (time - lastT) / 1000 : 0.016;
+    const dt = Math.min(0.1, raw); lastT = time;
+    // slow laptop: if frames keep arriving much later than aimed for, render fewer pixels
+    if (budget && budget === perf.budget && document.visibilityState === 'visible' && raw < 1) {
+      perf.n++; perf.sum += raw;
+      if (perf.sum > 4) { const avg = perf.sum / perf.n; perf.n = 0; perf.sum = 0; if (avg > budget * 1.4 + 0.008 && quality > 0.7) { quality = Math.max(0.7, +(quality - 0.2).toFixed(2)); R3.resize(); } }
+    } else { perf.n = 0; perf.sum = 0; perf.budget = budget || 0; }
     if (orbit) camG.yaw += dt * 0.06;
     const k = 1 - Math.exp(-dt * 7);
     cam.tx += (camG.tx - cam.tx) * k; cam.tz += (camG.tz - cam.tz) * k; cam.dist += (camG.dist - cam.dist) * k; cam.yaw += (camG.yaw - cam.yaw) * k; cam.pitch += (camG.pitch - cam.pitch) * k;

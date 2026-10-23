@@ -111,7 +111,7 @@ function persist() { if (S && !S.over) LS.set('game', { S }); }
 function levelMinutes(l) { return +(l === 1 ? S.cfg.t1 : l === 2 ? S.cfg.t2 : S.cfg.t3); }
 
 function newGame(team, phone, repeat) {
-  const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+  const seed = (window.__seed >>> 0) || ((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0); // __seed: automated play-tests only
   S = E.newGame(seed, team);
   S.phone = phone;
   S.cfg = { dayMin: settings.dayMin || 6, t1: settings.t1, t2: settings.t2, t3: settings.t3, jump: settings.jump, pauseSec: settings.pauseSec, finalPauseSec: settings.finalPauseSec };
@@ -1194,7 +1194,7 @@ onSubmit($('pinForm'), e => {
 let lbUnsub = null, lbRows = [];
 function openOrg() {
   $('orgScreen').hidden = false; seg('lb');
-  $('sT1').value = settings.t1; $('sT2').value = settings.t2; $('sT3').value = settings.t3; $('sJump').value = settings.jump; $('sPause').value = settings.pauseSec; $('sDay').value = settings.dayMin || 6; $('sPin').value = settings.pin; $('sSheet').value = settings.sheetUrl || ''; $('sLaptop').value = laptopName();
+  $('sT1').value = settings.t1; $('sT2').value = settings.t2; $('sT3').value = settings.t3; $('sJump').value = settings.jump; $('sPause').value = settings.pauseSec; $('sDay').value = settings.dayMin || 6; $('sPin').value = settings.pin; $('sSheet').value = settings.sheetUrl || ''; $('sLaptop').value = laptopName(); $('sGfx').value = gfxMode();
   $('gameInfo').textContent = S ? 'Current game: ' + S.team + ', Level ' + S.level + ', city year ' + S.year + '.' : 'No game in progress.';
   updateDbStatus();
   if (db && !lbUnsub) lbUnsub = db.collection('results').onSnapshot(snap => { lbRows = snap.docs.map(d => Object.assign({ _id: d.id }, d.data())); renderLb(); }, () => { lbUnsub = null; lbRows = LS.get('results', []); renderLb(); });
@@ -1243,6 +1243,7 @@ onSubmit($('setForm'), async e => {
   const n = (id, lo, hi, d) => clamp(Math.round(+$(id).value || d), lo, hi);
   settings = { t1: n('sT1', 1, 60, 15), t2: n('sT2', 1, 60, 8), t3: n('sT3', 1, 60, 8), jump: n('sJump', 5, 10, 8), pauseSec: n('sPause', 20, 180, 90), finalPauseSec: Math.round(n('sPause', 20, 180, 90) * 2 / 3), pin: ($('sPin').value.trim() || '2026').slice(0, 12), sheetUrl: $('sSheet').value.trim(), sheetKey: settings.sheetKey || DEFAULTS.sheetKey, dayMin: n('sDay', 2, 20, 6) };
   if ($('sLaptop').value.trim()) LS.set('laptop', $('sLaptop').value.trim().slice(0, 30));
+  LS.set('gfx', $('sGfx').value === 'saver' ? 'saver' : 'normal'); gfxCached = null; applyGfx();
   LS.set('settings', settings); applySettingsText(); sheetFlush();
   if (has3D) R3.setDayLength(settings.dayMin);
   if (settings.sheetUrl && !sheetOn()) { $('setMsg').textContent = 'That Google Sheet link does not look right: it should start with https://script.google.com/'; return; }
@@ -1347,11 +1348,36 @@ function rainTick(dt) {
   }
   g.stroke();
 }
-let lastLoop = 0;
-function loop(t) { const dt = Math.min(0.1, lastLoop ? (t - lastLoop) / 1000 : 0.016); lastLoop = t; if (has3D) R3.frame(t); try { rainTick(dt); } catch (_) { } requestAnimationFrame(loop); }
+/* Frame pacing: the island is redrawn only as often as needed, so laptops stay cool.
+   60 fps while someone is moving the camera or placing a building, 30 fps otherwise,
+   8 fps behind a popup that covers the map, and nothing while the tab is hidden. */
+let lastLoop = 0, lastInput = 0;
+['pointerdown', 'pointermove', 'wheel', 'keydown'].forEach(ev => window.addEventListener(ev, () => { lastInput = performance.now(); }, { passive: true, capture: true }));
+const COVER = ['eventScreen', 'whatScreen', 'resultScreen', 'rulesScreen', 'sdgScreen', 'orgScreen', 'pinScreen', 'boardScreen', 'unlockScreen', 'reallocScreen', 'crewScreen', 'confirmScreen'];
+const coverEls = COVER.map(id => document.getElementById(id)).filter(Boolean);
+// Battery saver (Organiser → Game settings, per laptop): fewer pixels and frames
+let gfxCached = null;
+const gfxMode = () => gfxCached || (gfxCached = LS.get('gfx', 'normal'));
+function applyGfx() { if (has3D) R3.setQuality(gfxMode() === 'saver' ? 0.85 : 1.25); }
+function targetFps(now) {
+  if (coverEls.some(el => !el.hidden)) return 8;
+  if (gfxMode() === 'saver') return now - lastInput < 1500 ? 30 : 20;
+  if (now - lastInput < 1500) return 60;
+  if (viewMode === 'sim') return 30;
+  if (!S) return now - lastInput > 60000 ? 15 : 30; // start screen left alone
+  return 30;
+}
+function loop(t) {
+  requestAnimationFrame(loop);
+  const fps = targetFps(t);
+  if (lastLoop && t - lastLoop < 1000 / fps - 4) return;
+  const dt = Math.min(0.1, lastLoop ? (t - lastLoop) / 1000 : 0.016); lastLoop = t;
+  if (has3D) R3.frame(t, fps >= 30 ? 1 / fps : 0);
+  try { rainTick(dt); } catch (_) { }
+}
 window.addEventListener('resize', () => { if (has3D) { R3.resize(); layoutInsets(); } });
 if (!has3D) { const n = document.createElement('div'); n.className = 'no3d'; n.textContent = 'This browser cannot show the 3D city. Please use an up-to-date Chrome, Edge or Firefox.'; $('app').appendChild(n); }
-buildLegend(); renderTabs();
+buildLegend(); renderTabs(); applyGfx();
 showStart();
 requestAnimationFrame(loop);
 initDb();
