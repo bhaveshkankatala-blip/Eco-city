@@ -223,6 +223,7 @@ function buildLegend() {
    Panels: plain numbers, red only when something is failing now
    ========================================================= */
 const ICON = {
+  skill: '<svg viewBox="0 0 24 24" width="20" fill="#f5c544"><path d="M12 3L1 9l11 6 9-4.9V17h2V9z"/><path d="M5 13.2v3.6C6.8 18.8 9.2 20 12 20s5.2-1.2 7-3.2v-3.6l-7 3.8z" opacity=".75"/></svg>',
   pop: '<svg viewBox="0 0 24 24" width="20" fill="#7cc7ff"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.6" opacity=".75"/><path d="M2.5 20c.6-4 3.2-6 6.5-6s5.9 2 6.5 6z"/><path d="M14.5 14.6c2.8-.3 5.6 1.2 6.5 5.4h-4.3" opacity=".75"/></svg>',
   home: '<svg viewBox="0 0 24 24" width="20" fill="#f28b6b"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>',
   food: '<svg viewBox="0 0 24 24" width="20" fill="#62d36c"><path d="M20 3C10 3 4 9 4 17c0 1 .1 2 .3 3C6 13 11 9 17 7c-5 3-9 7-11 13h2c3-7 12-8 12-17z"/></svg>',
@@ -244,7 +245,17 @@ function renderStats() {
   h.push('<div class="ages"><div><b class="num">' + fmt(S.kids) + '</b><span>Children<br>0–14</span></div><div class="work"><b class="num">' + fmt(S.adults) + '</b><span>Working age<br>15–59 · ' + fmt(f.workforce) + ' can work</span></div><div><b class="num">' + fmt(S.elders) + '</b><span>Elderly<br>60+</span></div></div>');
   h.push(statRow('jobs', 'Jobs', fmt(f.jobs), 'Workers ' + fmt(f.workforce) + ' · ' + fmt(f.unemployed) + ' without work' + (f.unstaffed ? ' · ' + f.unstaffed + ' building' + (f.unstaffed > 1 ? 's' : '') + ' closed' : ''), f.unstaffed > 0 || (f.workforce && f.unemployed / f.workforce > 0.15)));
   if (S.phase === 'plan') h.push('<button class="holdchip' + (f.unemployed > 0 ? ' busy' : '') + '" id="holdBtn">' + (f.unemployed > 0 ? fmt(f.unemployed) + ' free workers · Assign them' : 'Assign workers') + '</button>');
-  h.push(statRow('money', S.level === 1 ? 'Budget left' : 'Money', money(S.money), (f.net >= 0 ? '+' : '') + money(f.net) + ' a year after upkeep' + (f.net < 0 ? ': losing money hurts SDG 1, No Poverty' : ''), S.money < 0 || f.net < 0));
+  // money: debt has consequences, so say exactly what they are and when they arrive
+  const dy = (S.streak && S.streak.debt) || 0;
+  const moneyNote = S.money < 0 ? 'In debt ' + dy + ' year' + (dy === 1 ? '' : 's') + ' · interest ' + money(f.interest) + '/yr · ' + (dy >= 5 ? 'services cut back now' : 'services cut after 5 years') + ', bankrupt after 20'
+    : f.net < 0 ? 'Losing ' + money(-f.net) + ' a year: in debt in about ' + Math.max(1, Math.floor(S.money / -f.net)) + ' years'
+    : '+' + money(f.net) + ' a year after upkeep';
+  h.push(statRow('money', S.level === 1 ? 'Budget left' : 'Money', money(S.money), moneyNote, S.money < 0 || f.net < 0));
+  const short = f.gen < f.eDemand;
+  h.push(statRow('energy', 'Energy', fmt(f.gen) + ' / yr', 'Used ' + fmt(f.eDemand) + ' · ' + Math.round(f.cleanShare * 100) + '% clean' + (short ? ' · not enough: factories, pumps and hospitals slow down, power cuts kill' : ''), short));
+  // trained workers come from schools, one generation at a time
+  const tr = f.trained == null ? 0.6 : f.trained, sk = Math.round((f.skill || 1) * 100);
+  h.push(statRow('skill', 'Trained workers', Math.round(tr * 100) + '%', 'Plants, factories and hospitals work at ' + sk + '%' + (S.level >= 2 && f.eduCov < 0.6 ? ' · schools teach ' + Math.round(f.eduCov * 100) + '% of people: without more, this falls to 70%' : f.eduCov >= 0.6 ? ' · schools are training the next generation' : ''), S.level >= 2 && tr < 0.4));
   const homeless = Math.max(0, S.pop - f.cap);
   h.push(statRow('home', 'Homes', fmt(f.cap), homeless ? fmt(homeless) + ' people in slums' : 'Places to live', homeless > 0));
   h.push(statRow('food', 'Food', fmt(f.food) + ' / yr', 'Grown a year · eaten ' + fmt(f.foodDemand) + (f.foodCap ? ' · stored ' + fmt(S.foodStore) : ''), foodNow < f.foodDemand));
@@ -253,7 +264,6 @@ function renderStats() {
   const rp = f.waterCap ? clamp(S.water / f.waterCap, 0, 1) : 0, rLow = rp < 0.2;
   h.push('<div class="stat res' + (rLow ? ' bad' : '') + '" title="Water stored in the reservoir"><div class="ic">' + ICON.water + '</div><div class="k">Reservoir</div><div class="v num">' + Math.round(rp * 100) + '%</div>' +
     '<div class="tankbar' + (rLow ? ' low' : '') + '" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(rp * 100) + '"><i style="width:' + (rp * 100).toFixed(1) + '%"></i><span>' + fmt(S.water) + ' of ' + fmt(f.waterCap) + '</span></div></div>');
-  h.push(statRow('energy', 'Energy', fmt(f.gen) + ' / yr', 'Used ' + fmt(f.eDemand) + ' · ' + Math.round(f.cleanShare * 100) + '% clean', f.gen < f.eDemand));
   h.push(statRow('pol', 'Pollution', Math.round(S.pollution) + '%', 'Air quality', S.pollution > 75));
   h.push(statRow('rain', 'Rain', Math.round(f.rain * 100) + '%', f.drought ? 'Drought: well below normal' : 'Of a normal monsoon', f.drought));
   $('statList').innerHTML = h.join('');
@@ -483,7 +493,7 @@ const TABS = [
 function l1Left(type) { const c = E.L1_CAPS[type]; if (!c || S.level !== 1) return null; return Math.max(0, c.n - Object.values(S.buildings).filter(b => b.type === type).length); }
 function priceText(type) {
   const d = B[type], c = E.L1_CAPS[type], left = l1Left(type);
-  const base = S.level === 1 && E.L1_FREE && type in { foodFarm: 1, cashFarm: 1 } ? 'Free' : money(d.cost) + (d.perBlock ? '/block' : '');
+  const base = S.level === 1 && E.L1_FREE && type in { foodFarm: 1, cashFarm: 1 } ? 'Free' : type === 'forest' ? money(E.costOf(S, 'forest', 0)) + ' (next)' : money(d.cost) + (d.perBlock ? '/block' : '');
   return left == null ? base : base + ' · ' + left + ' left';
 }
 const previews = {};
@@ -856,7 +866,7 @@ function showUnlocks(l) {
     if (previews[t] === undefined) previews[t] = has3D ? R3.thumb(t) : null;
     return '<div class="uncard">' + (previews[t] ? '<img alt="" src="' + previews[t] + '">' : '') + '<div><b>' + B[t].name + '</b><span class="tab">' + tabOf(t) + ' tab</span><p>' + escapeHtml(B[t].desc) + '</p></div></div>';
   }).join('');
-  $('unUp').innerHTML = l === 2 ? '<b>Upgrades are open.</b> Choose <b>Inspect &amp; demolish → Inspect</b> and click a building: plants and mines can grow onto the next resource block (each step costs more and needs more workers), and homes can get rooftop solar and rainwater harvesting.'
+  $('unUp').innerHTML = l === 2 ? '<b>Schools matter now.</b> The village taught its own children in Level 1; from now on only schools do. Without them the next generation cannot run plants, factories or hospitals, and their output falls to 70%.<br><b>Upgrades are open.</b> Choose <b>Inspect &amp; demolish → Inspect</b> and click a building: plants and mines can grow onto the next resource block (each step costs more and needs more workers), and homes can get rooftop solar and rainwater harvesting.'
     : '<b>Remember:</b> you can still upgrade plants, mines and homes (Inspect a building), and move workers between buildings with <b>Assign workers</b> in the Jobs panel.';
   $('unlockScreen').hidden = false; ui.unlockAt = Date.now();
 }

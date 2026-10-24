@@ -279,3 +279,65 @@ test('v5: SDG 1 No Poverty falls when the city runs at a loss', () => {
   E.step(a, 'grow'); E.step(b, 'grow');
   assert.ok(b.sdgSum.poverty < a.sdgSum.poverty);
 });
+
+// ---------- v7: money, power, schools and forests all have real consequences ----------
+function l2city(seed) {
+  const s = E.newGame(seed || 4242, 'T');
+  put(s, 'foodFarm', 6); put(s, 'coalPlant', 1, 2);
+  jump(s, 8, 'grow'); E.startLevel(s, 2);
+  return s;
+}
+test('v7: debt costs interest, cuts services after 5 years, and bankrupts a city in the final run', () => {
+  const s = l2city();
+  s.money = -2000;
+  const f = E.flows(s);
+  assert.ok(Math.abs(f.interest - 80) < 1e-6, 'interest is 4% of the debt');
+  const base = Object.values(s.buildings).find(b => b.type === 'foodFarm');
+  const eff0 = E.flows(Object.assign(JSON.parse(JSON.stringify(s)), { money: 100 })).food;
+  assert.ok(f.food < eff0, 'buildings slow down while in debt');
+  s.streak.debt = 6; assert.ok(E.flows(s).austerity, 'five years in debt in a row = cut-backs');
+  // not fatal during the Level 2 jump
+  const a = JSON.parse(JSON.stringify(s)); a.streak.debt = 30; a.money = -1e6; E.step(a, 'dyn');
+  assert.ok(!a.dead || a.dead.why !== 'bankrupt', 'bankruptcy only ends a city in the final run');
+  // fatal in the final run after 20 years
+  const b = JSON.parse(JSON.stringify(s)); b.finalStart = b.year; E.beginEra(b, 3, 400); b.money = -1e7;
+  for (let y = 0; y < 25 && !b.dead; y++) E.step(b, 'dyn');
+  assert.ok(b.dead, 'a city deep in debt does not reach the end');
+  assert.ok(b.dead.why === 'bankrupt' || b.dead.why === 'population', b.dead.why);
+  assert.ok(base);
+});
+test('v7: a city without power loses output, loses people in the dark, and dies in the final run', () => {
+  const s = l2city();
+  Object.values(s.buildings).filter(b => E.B[b.type].gen).forEach(b => E.demolish(s, b.id));
+  const f = E.flows(s);
+  assert.strictEqual(f.gen, 0);
+  const lit = JSON.parse(JSON.stringify(s)); put(lit, 'solar', 6); put(lit, 'wind', 6);
+  assert.ok(E.flows(lit).food > f.food, 'farms grow less without power for the pumps');
+  const r = E.rates(s, f);
+  assert.ok(r.deaths > E.rates(lit, E.flows(lit)).deaths, 'power cuts kill');
+  const d = JSON.parse(JSON.stringify(s)); d.finalStart = d.year; E.beginEra(d, 3, 400);
+  for (let y = 0; y < 20 && !d.dead; y++) E.step(d, 'dyn');
+  assert.ok(d.dead && d.dead.why === 'blackout', 'fifteen years with under half the power ends the city: ' + JSON.stringify(d.dead));
+});
+test('v7: schools train the next generation; without them plants and factories slow to 70%', () => {
+  const a = l2city(), b = JSON.parse(JSON.stringify(a));
+  a.money = b.money = 1e6;
+  put(b, 'school', 4);
+  for (let y = 0; y < 40; y++) { E.step(a, 'dyn'); E.step(b, 'dyn'); }
+  const fa = E.flows(a), fb = E.flows(b);
+  assert.ok(fa.trained < 0.35, 'no schools: few trained workers (' + fa.trained.toFixed(2) + ')');
+  assert.ok(fb.trained > 0.6, 'schools: a trained generation (' + fb.trained.toFixed(2) + ')');
+  assert.ok(fb.skill > fa.skill + 0.2);
+  // Level 1 is not punished for schools it cannot build
+  const s = E.newGame(7, 'T'); jump(s, 8, 'grow'); assert.ok(E.flows(s).trained >= 0.59);
+});
+test('v7: forests get dearer and clean less after eight; nuclear waste counts against Responsible Consumption', () => {
+  const s = l2city(); E.startLevel(s, 3); s.money = 1e6;
+  const c0 = E.costOf(s, 'forest', 0); put(s, 'forest', 5);
+  assert.ok(E.costOf(s, 'forest', 0) >= Math.round(c0 * 2), 'the sixth forest costs twice the first');
+  const g = JSON.parse(JSON.stringify(s)); put(g, 'forest', 3); const a8 = E.flows(g).absorb;
+  put(g, 'forest', 4); const a12 = E.flows(g).absorb;
+  assert.ok(a12 - a8 < 4 * E.B.forest.absorb * 0.6, 'forests after the eighth clean half as much');
+  const n = E.newGame(42, 'N'); put(n, 'nuclear', 1, 1); const fn = E.flows(n);
+  assert.ok(fn.nukeShare > 0.9 && fn.cleanShare < 0.6, 'nuclear counts only half clean');
+});

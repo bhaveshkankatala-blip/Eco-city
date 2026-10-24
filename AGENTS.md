@@ -6,6 +6,14 @@ Read this before changing code. It is meant to save every agent (Claude, Gemini,
 - **Live build:** a Claude artifact. `dist/index.html` is what gets published.
 - **Game rules and numbers:** [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)
 
+## 0a. What changed in v7 (branch `v7`)
+
+- **Debt:** 4% interest a year (`flows().interest`); buildings at 90% while in debt, 75% after 5 years in a row (`austerity`); `streak.debt >= 20` in the final run = dead (`why: 'bankrupt'`); each round loses up to 25 points for years in debt (was 10).
+- **Power:** factories and services run at `0.25 + 0.75 × energyR`, farms `0.7 + 0.3 × energyR`, river water pumping `0.6 + 0.4 × energyR`; a new death cause `dark` (counts as preventable); `streak.dark >= 15` (under half the power) in the final run = dead (`'blackout'`).
+- **Schools:** `state.trained` (share of trained adults) moves one generation at a time towards `eduCov` (Level 1: the village teaches, floor 0.6). Buildings in `SKILLED` (plants, mines, factories, hospitals, water and pollution plants) work at `skill = 0.7 + 0.5 × trained` (70%–120%). Stats row "Trained workers"; Level 2 popup, guide and rules explain it.
+- **Dominant build broken:** forests cost 20% more each and clean half as much after the eighth; Life on Land wants 5% planted forest (was 8%) and more wild land; nuclear upkeep 5/block, counts half clean, and its waste lowers Responsible Consumption; solar panels unlock in Level 1 (up to 6).
+- Bankruptcy and blackouts end a city only in the final run (the clocks restart when it begins, in `beginEra(…, 3)`), so no team is cut out of Level 3.
+
 ## 0. What changed in v6 (branch `v6`)
 
 - **Workers:** `Eco.addBuilding(..., workers)` and `Eco.setWorkers(S, id, n)` set a building's crew (clamped to min–max per block). Output is proportional to the crew (`_eff = _w / max`). `Eco.autoAssign(S, flows)` gives unemployed adults to understaffed buildings; `step()` calls it every year. UI: crew dialog on placement (`askCrew`), workers panel (`openWorkers`), crew slider in the inspector.

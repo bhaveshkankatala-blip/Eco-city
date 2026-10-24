@@ -2,6 +2,8 @@
 
 This is the team's final game plan (written on paper, Oct 2026) together with the values chosen for the web beta. The code is the source of truth for numbers: `src/engine.js` (`B`, `LEVELS`, `DROUGHTS`) and the settings defaults in `src/game.js`.
 
+> **v7 rules** (override v6): debt costs 4% interest, cuts services after 5 years and bankrupts a city after 20 in the final run; under half the power for 15 years in the final run ends a city and power cuts kill; schools train the next generation (plants, factories and hospitals 70%–120%); forests cost 20% more each and halve after 8; nuclear counts half clean and its waste lowers SDG 12; solar unlocks in Level 1.
+>
 > **v6 numbers** (these override older values below): Level 1 budget ₹50 L; reservoir 10,000 with 20% of the empty space refilled by rain each year; round weights 20% / 40% / 40%; building output proportional to its crew; upgrade steps cost 1.2×, 1.5×, 1.8× a new block. See [AGENTS.md §0](../AGENTS.md#0-what-changed-in-v6-branch-v6).
 
 ## Format
