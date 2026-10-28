@@ -25,3 +25,6 @@ Thumbs.db
 
 # hosting build output (Netlify builds it: node scripts/build.js --site)
 site/
+
+# event-day settings (Google Sheet link): kept out of the public repo
+src/config.json
