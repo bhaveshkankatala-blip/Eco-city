@@ -141,7 +141,8 @@ let viewMode = 'start';
 function fitPanels() {
   const bt = $('build').getBoundingClientRect().top;
   if (!(bt > 0)) return;
-  ['stats', 'right'].forEach(id => { const el = $(id); if (!el) return; const t = el.getBoundingClientRect().top; if (t > 0) el.style.maxHeight = Math.max(120, Math.floor(bt - t - 10)) + 'px'; });
+  const mc = $('mapCtl'), mt = mc && mc.getBoundingClientRect().top > 0 ? mc.getBoundingClientRect().top : bt; // the camera buttons sit under the right column
+  ['stats', 'right'].forEach(id => { const el = $(id); if (!el) return; const t = el.getBoundingClientRect().top, end = id === 'right' ? Math.min(bt, mt) : bt; if (t > 0) el.style.maxHeight = Math.max(120, Math.floor(end - t - 10)) + 'px'; });
 }
 window.addEventListener('resize', fitPanels);
 function layoutInsets() {
