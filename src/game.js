@@ -448,14 +448,15 @@ $('raAuto').onclick = () => { E.autoAssign(S, E.flows(S)); renderWorkers(); refr
 
 /* Placing a building that needs workers: the team chooses the crew */
 let crewAsk = null;
-function askCrew(id) {
+function askCrew(id, refund) {
   const b = S.buildings[id], d = B[b.type]; if (!d.min) return;
   const k = d.perBlock ? b.tiles.length : 1, mn = d.min * k, mx = d.max * k;
   if (ui.crewPref && ui.crewPref[b.type] != null && ui.crewPref.level === S.level) { E.setWorkers(S, id, Math.round(mn + (mx - mn) * ui.crewPref[b.type])); refresh(); persist(); return; }
   const f = E.flows(S), free = f.unemployed + (b._w || 0);
   const start = clamp(free, mn, mx);
   E.setWorkers(S, id, start);
-  crewAsk = { id, mn, mx, step: mx <= 20 ? 1 : E.K };
+  crewAsk = { id, mn, mx, step: mx <= 20 ? 1 : E.K, refund: refund || { cost: 0, wB: 0 } };
+  $('cwCancel').textContent = 'Cancel: don\'t build it' + (crewAsk.refund.cost ? ' (get ' + money(crewAsk.refund.cost) + ' back)' : '');
   $('cwTitle').textContent = 'How many people should work at the new ' + d.name + '?';
   $('cwRange').min = mn; $('cwRange').max = mx; $('cwRange').step = crewAsk.step; $('cwRange').value = start;
   $('cwSame').checked = false; $('cwSameLbl').textContent = 'Use the same share for every new ' + d.name + ' this level';
@@ -474,6 +475,23 @@ $('cwOk').onclick = () => {
   const b = S.buildings[crewAsk.id];
   if (b && $('cwSame').checked) { ui.crewPref = ui.crewPref && ui.crewPref.level === S.level ? ui.crewPref : { level: S.level }; ui.crewPref[b.type] = (b.workers - crewAsk.mn) / Math.max(1, crewAsk.mx - crewAsk.mn); }
   crewAsk = null; $('crewScreen').hidden = true; refresh(); persist();
+};
+
+// changed your mind: the building is taken back and everything it cost is returned
+$('cwCancel').onclick = () => {
+  if (!crewAsk) return;
+  const b = S.buildings[crewAsk.id], rf = crewAsk.refund;
+  crewAsk = null; $('crewScreen').hidden = true;
+  if (b) {
+    const name = B[b.type].name, tiles = b.tiles.slice();
+    E.demolish(S, b.id);
+    S.money += rf.cost;
+    S.water += rf.wB; const cap = E.flows(S).waterCap; if (S.water > cap) S.water = cap;
+    if (has3D) R3.puff(tiles);
+    toast(name + ' not built.' + (rf.cost ? ' ' + money(rf.cost) + ' returned.' : ''));
+  }
+  ui.tool = null; ui.sel = null; if (has3D) R3.grid(false);
+  refresh(true); markResources(); renderMode(); persist();
 };
 
 /* Build bar */
@@ -657,7 +675,7 @@ window.addEventListener('keydown', e => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
   if (e.key === 'Escape' && !$('unlockScreen').hidden) { $('unOk').click(); return; }
   if (e.key === 'Escape' && ra) { closeWorkers(); return; }
-  if (e.key === 'Escape' && crewAsk) { $('cwOk').click(); return; }
+  if (e.key === 'Escape' && crewAsk) { $('cwCancel').click(); return; }
   if (e.key === 'Escape') { setTimeout(() => { markResources(); renderMode(); showCardInfo(null); }, 0); }
   if (e.key === 'Escape') { ui.tool = null; ui.sel = null; ui.selTile = -1; if (has3D) { R3.grid(false); R3.select(null); } if (S) refresh(); }
   if (!has3D || viewMode !== 'plan') return;
@@ -700,7 +718,7 @@ function clickTile(i) {
   markResources(); renderCards();
   setHover(i);
   guideEvent('built', placed.type);
-  if (B[placed.type].min) askCrew(placed.id);
+  if (B[placed.type].min) askCrew(placed.id, { cost: r.cost || 0, wB: r.wB || 0 });
 }
 function effectLine(b) {
   const d = B[b.type], o = [], n = d.perBlock ? b.tiles.length : 1;

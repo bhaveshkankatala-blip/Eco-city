@@ -583,7 +583,7 @@
     state.money -= c.cost;
     state.water -= c.wB;
     const id = addBuilding(state, type, c.fp, false, opt && opt.workers);
-    return { ok: true, id, cost: c.cost };
+    return { ok: true, id, cost: c.cost, wB: c.wB };
   }
   // the team sets how many people work in a building (between its minimum and maximum crew)
   function setWorkers(state, id, n) {
