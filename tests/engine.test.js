@@ -180,7 +180,8 @@ test('v6: a smaller crew means proportionally less output, and frees workers', (
 
 test('v6: during the years that pass, new workers join understaffed buildings', () => {
   const s = E.newGame(4242); put(s, 'foodFarm', 6);
-  Object.values(s.buildings).forEach(b => { if (b.type === 'foodFarm') E.setWorkers(s, b.id, 0); });
+  // farms that are short of the crew the team chose (places waiting for workers)
+  Object.values(s.buildings).forEach(b => { if (b.type === 'foodFarm') { E.setWorkers(s, b.id, 0); b.want = E.crewRange(b).mx; } });
   const before = E.flows(s).jobs;
   assert.ok(E.flows(s).unemployed > 0);
   E.step(s, 'grow');
@@ -340,4 +341,51 @@ test('v7: forests get dearer and clean less after eight; nuclear waste counts ag
   assert.ok(a12 - a8 < 4 * E.B.forest.absorb * 0.6, 'forests after the eighth clean half as much');
   const n = E.newGame(42, 'N'); put(n, 'nuclear', 1, 1); const fn = E.flows(n);
   assert.ok(fn.nukeShare > 0.9 && fn.cleanShare < 0.6, 'nuclear counts only half clean');
+});
+
+// ---------- v8: workers are real people; buildings can be closed; rain decides how full the reservoir gets ----------
+test('v8: people taken out of a building stay free (no hidden move into short-staffed farms)', () => {
+  const s = E.newGame(4242, 'T');
+  put(s, 'foodFarm', 5); put(s, 'coalPlant', 1, 1); put(s, 'foodFarm', 2); // 480 workers: the last farm gets only who is left
+  const f0 = E.flows(s);
+  const farms = Object.values(s.buildings).filter(b => b.type === 'foodFarm');
+  assert.ok(farms.some(b => (b.want || 0) > b.workers || b.workers === 0), 'some farms are short of their chosen crew');
+  const coal = Object.values(s.buildings).find(b => b.type === 'coalPlant');
+  const before = farms.map(b => b._w);
+  E.setWorkers(s, coal.id, E.crewRange(coal).mn);
+  const f1 = E.flows(s);
+  assert.deepStrictEqual(farms.map(b => b._w), before, 'farms did not change');
+  assert.ok(f1.unemployed > f0.unemployed, 'the freed people are free');
+});
+test('v8: close a building to free its workers, open it again to take them back', () => {
+  const s = E.newGame(4242, 'T'); put(s, 'foodFarm', 3); put(s, 'coalPlant', 1, 1);
+  const coal = Object.values(s.buildings).find(b => b.type === 'coalPlant');
+  const w = E.flows(s).unemployed, crew = coal._w;
+  const freed = E.closeBuilding(s, coal.id);
+  assert.strictEqual(freed, crew);
+  const f = E.flows(s);
+  assert.strictEqual(coal._w, 0); assert.strictEqual(f.unemployed, w + crew);
+  assert.strictEqual(f.gen, 0, 'a closed plant makes nothing');
+  // a closed building is never refilled by the years passing
+  E.step(s, 'grow'); assert.strictEqual(s.buildings[coal.id].workers, 0);
+  assert.ok(E.openBuilding(s, coal.id) > 0); assert.ok(E.flows(s).gen > 0, 'open again: power is back');
+});
+test('v8: when people run short, small crews (solar, wind) are the last to lose workers', () => {
+  const s = E.newGame(4242, 'T'); put(s, 'solar', 3); put(s, 'foodFarm', 8);
+  s.adults = s.adults * 0.45; // many workers gone at once
+  const f = E.flows(s);
+  Object.values(s.buildings).filter(b => b.type === 'solar').forEach(b => assert.ok(b._w > 0, 'solar keeps its crew'));
+  assert.ok(f.jobs <= f.workforce);
+});
+test("v8: the reservoir fills only as far as this year's rain allows", () => {
+  const s = E.newGame(4242, 'T'); put(s, 'foodFarm', 6);
+  const levels = [];
+  for (let y = 0; y < 30; y++) { E.step(s, 'grow'); const cap = E.flows(s).waterCap; levels.push(s.water / cap); assert.ok(s.water <= E.fillLevel(cap, s.rainYear) + 1e-6); }
+  assert.ok(Math.max(...levels) <= 0.86, 'never full to the brim');
+  assert.ok(Math.max(...levels) - Math.min(...levels) > 0.02, 'it goes up and down with the rain');
+});
+test('v8: new prices and crews', () => {
+  assert.strictEqual(E.B.solar.cost, 60 * E.K); assert.strictEqual(E.B.wind.cost, 70 * E.K);
+  assert.strictEqual(E.B.foodFarm.min, 30); assert.strictEqual(E.B.foodFarm.max, 60);
+  assert.strictEqual(E.B.itPark.min, 150); assert.strictEqual(E.B.itPark.max, 300);
 });

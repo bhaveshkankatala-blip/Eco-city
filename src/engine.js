@@ -21,7 +21,7 @@
     apartment:  { name: 'Apartments', cat: 'housing', lvl: 2, cost: 150, cap: 90, maint: 3, pol: 0.6, energy: 6,
                   desc: 'High density: 900 people per block. Needs more energy for lifts and pumps.' },
 
-    foodFarm:   { name: 'Food Crops', cat: 'agri', lvl: 1, cost: 25, wB: 10, wR: 30, min: 4, max: 8, energy: 1, food: 40, econ: 5, pol: 0.5, maint: 1,
+    foodFarm:   { name: 'Food Crops', cat: 'agri', lvl: 1, cost: 25, wB: 10, wR: 30, min: 3, max: 6, energy: 1, food: 40, econ: 5, pol: 0.5, maint: 1,
                   desc: 'Rice, wheat, pulses. Feeds up to 400 people a year in a normal monsoon.' },
     cashFarm:   { name: 'Cash Crops', cat: 'agri', lvl: 1, cost: 25, wB: 10, wR: 45, min: 4, max: 8, energy: 1, econ: 20, pol: 1, maint: 1,
                   desc: 'Cotton, sugarcane, spices. Earns money but feeds no one, and is thirsty.' },
@@ -44,9 +44,9 @@
 
     dam:        { name: 'Dam', cat: 'energy', lvl: 2, on: 'river', cost: 250, min: 6, max: 10, gen: 150, waterIn: 120, waterCap: 600, maint: 6, renew: true, firm: true, limit: 2,
                   desc: 'Built on the river. Energy, extra water and a bigger reservoir. Weak in dry years. Max 2.' },
-    wind:       { name: 'Wind Mill', cat: 'energy', lvl: 2, cost: 60, min: 1, max: 2, gen: 35, maint: 2, renew: true,
+    wind:       { name: 'Wind Mill', cat: 'energy', lvl: 2, cost: 70, min: 1, max: 2, gen: 35, maint: 2, renew: true,
                   desc: 'Clean energy. Output varies with the wind unless you add storage.' },
-    solar:      { name: 'Solar Panels', cat: 'energy', lvl: 1, cost: 50, min: 1, max: 2, gen: 30, maint: 1.5, renew: true,
+    solar:      { name: 'Solar Panels', cat: 'energy', lvl: 1, cost: 60, min: 1, max: 2, gen: 30, maint: 1.5, renew: true,
                   desc: 'Clean energy that never runs out. Output varies with sunlight (70%) unless you add energy storage.' },
 
     hospital:   { name: 'Hospital', cat: 'services', lvl: 2, cost: 150, min: 10, max: 20, energy: 10, health: 250, maint: 8,
@@ -55,7 +55,7 @@
                   desc: 'Stores 3,000 food from good years for bad ones.' },
     battery:    { name: 'Energy Storage', cat: 'energy', lvl: 3, cost: 100, min: 1, max: 2, firmFor: 4, maint: 3,
                   desc: 'Battery bank. Makes up to 4 solar or wind blocks give full, steady power.' },
-    itPark:     { name: 'Industrial Park', cat: 'industry', lvl: 3, cost: 200, min: 20, max: 40, energy: 20, econ: 90, pol: 4, maint: 8,
+    itPark:     { name: 'Industrial Park', cat: 'industry', lvl: 3, cost: 200, min: 15, max: 30, energy: 20, econ: 90, pol: 4, maint: 8,
                   desc: 'Workshops and offices. Many jobs and good income without using up resources.' },
     recycling:  { name: 'Pollution Control', cat: 'services', lvl: 3, cost: 90, min: 4, max: 8, energy: 8, absorb: 12, econ: 4, maint: 4,
                   desc: 'Recycling and filters. Removes a lot of pollution every year.' },
@@ -475,14 +475,23 @@
     const id = 'b' + (++state.bid);
     const d = B[type];
     const n = d.perBlock ? tiles.length : 1;
+    // want: the crew the team chose; workers: the people actually assigned (taken from free workers in build())
     const crew = workers != null && d.min ? clamp(Math.round(workers), d.min * n, d.max * n) : (d.max || 0) * n;
-    state.buildings[id] = { id, type, tiles, workers: crew, built: state.year, initial: !!initial, up: {} };
+    state.buildings[id] = { id, type, tiles, workers: initial || !d.min ? crew : 0, want: crew, closed: false, built: state.year, initial: !!initial, up: {} };
     for (const i of tiles) state.tiles[i].b = id;
     return id;
   }
   function resetTally(state) {
     state.tally = { years: 0, born: 0, died: { hunger: 0, thirst: 0, poverty: 0, slums: 0, pollution: 0, old: 0, dark: 0 }, rainSum: 0, popStart: state.pop, agesStart: [state.kids, state.adults, state.elders], moneyStart: state.money, used: {}, events: [] };
   }
+
+  // who gets workers first when there are not enough: food, power, water, health and storage, schools, the rest
+  const prio = b => { const d = B[b.type]; return b.type === 'foodFarm' ? 0 : d.gen ? 1 : b.type === 'waterPlant' ? 2 : (b.type === 'hospital' || b.type === 'granary' || b.type === 'battery') ? 3 : b.type === 'school' ? 4 : 5; };
+  const SMALL_CREW = b => B[b.type].max * (B[b.type].perBlock ? b.tiles.length : 1) <= 2 * K;
+
+  // rain varies from year to year (the same for every team with the same map): 80% to 120% of the city's rain
+  function rainOfYear(state, rain) { const h = Math.sin(((state.seed || 1) % 9973) * 12.9898 + state.year * 78.233) * 43758.5453; return rain * (0.8 + 0.4 * (h - Math.floor(h))); }
+  function fillLevel(cap, rainYear) { return cap * clamp(0.3 + 0.5 * rainYear, 0.35, 0.85); }
 
   // ---------- Placement ----------
   const isDepositType = t => t === 'coal' || t === 'gold' || t === 'uranium' || t === 'mineral';
@@ -583,32 +592,58 @@
     state.money -= c.cost;
     state.water -= c.wB;
     const id = addBuilding(state, type, c.fp, false, opt && opt.workers);
+    if (B[type].min) fillFromFree(state, state.buildings[id]); // the crew comes from people without a job
     return { ok: true, id, cost: c.cost, wB: c.wB };
   }
   // the team sets how many people work in a building (between its minimum and maximum crew)
+  // Workers are real people: a building only gets people who are free (without a job), and people taken
+  // out of a building become free. Nothing moves them anywhere else until the team (or a time jump) does.
+  function crewRange(b) { const d = B[b.type], k = d.perBlock ? b.tiles.length : 1; return { mn: d.min * k, mx: d.max * k }; }
+  function freeWorkers(state) { return flows(state).unemployed; }
+  function fillFromFree(state, b, free) {
+    if (b.closed) return 0;
+    const { mn } = crewRange(b), want = b.want == null ? b.workers : b.want;
+    const spare = free == null ? freeWorkers(state) : free;
+    const add = Math.max(0, Math.min(spare, want - b.workers));
+    if (b.workers + add < mn) return 0; // not enough people to open it yet: it waits, nobody is stranded there
+    b.workers += add; return add;
+  }
   function setWorkers(state, id, n) {
     const b = state.buildings[id]; if (!b) return null;
     const d = B[b.type]; if (!d.min) return null;
-    const k = d.perBlock ? b.tiles.length : 1;
-    b.workers = clamp(Math.round(n), d.min * k, d.max * k);
+    const { mn, mx } = crewRange(b);
+    b.want = clamp(Math.round(n), mn, mx);
+    if (b.closed) return b.workers;
+    if (b.want < b.workers) b.workers = b.want; else fillFromFree(state, b);
     return b.workers;
   }
+  // close a building for now: its workers become free; it keeps the crew it had, to come back to later
+  function closeBuilding(state, id) {
+    const b = state.buildings[id]; if (!b || !B[b.type].min) return 0;
+    const freed = b.workers;
+    if (b.workers > 0) b.want = Math.max(crewRange(b).mn, b.workers);
+    b.closed = true; b.workers = 0;
+    return freed;
+  }
+  function openBuilding(state, id) {
+    const b = state.buildings[id]; if (!b) return 0;
+    b.closed = false;
+    return fillFromFree(state, b);
+  }
   // during the years that pass, people who come of working age join understaffed buildings (food first)
+  // during the years that pass, people who come of working age fill the empty places the team asked for
+  // (up to each building's chosen crew, never into a closed building), most needed first
   function autoAssign(state, f) {
     let spare = f.unemployed;
     if (spare <= 0) return 0;
-    const prio = b => { const d = B[b.type]; return b.type === 'foodFarm' ? 0 : d.gen ? 1 : b.type === 'waterPlant' ? 2 : (b.type === 'hospital' || b.type === 'granary' || b.type === 'battery') ? 3 : b.type === 'school' ? 4 : 5; };
-    const list = Object.values(state.buildings).filter(b => B[b.type].min && !b._dead).sort((a, b) => prio(a) - prio(b) || (+a.id.slice(1)) - (+b.id.slice(1)));
+    const list = Object.values(state.buildings).filter(b => B[b.type].min && !b._dead && !b.closed).sort((a, b) => prio(a) - prio(b) || (+a.id.slice(1)) - (+b.id.slice(1)));
     let moved = 0;
-    for (const b of list) {
-      if (spare <= 0) break;
-      const d = B[b.type], k = d.perBlock ? b.tiles.length : 1, mx = d.max * k;
-      if (b.workers >= mx) continue;
-      const add = Math.min(spare, mx - b.workers);
-      b.workers += add; spare -= add; moved += add;
-    }
+    for (const b of list) { if (spare <= 0) break; const add = fillFromFree(state, b, spare); spare -= add; moved += add; }
     return moved;
   }
+  // people who die or grow old leave their jobs: the city gives up places in the least needed buildings first,
+  // and small crews (solar, wind, storage: a handful of people) last
+  function syncCrews(state) { Object.values(state.buildings).forEach(b => { if (b._w != null && B[b.type].min && !b.closed && b.workers > b._w) b.workers = b._w; }); }
   function demolish(state, id) {
     const b = state.buildings[id];
     if (!b) return;
@@ -660,7 +695,8 @@
       // the crew grows in the same proportion as the plant
       const n0 = b.tiles.length;
       b.tiles.push(opt.tile); state.tiles[opt.tile].b = id;
-      b.workers = Math.round(b.workers * (n0 + 1) / n0);
+      b.want = Math.round((b.want == null ? b.workers : b.want) * (n0 + 1) / n0);
+      if (!b.closed) fillFromFree(state, b);
       return { ok: true, tile: opt.tile, cost: opt.cost };
     }
     b.up[kind] = true;
@@ -698,8 +734,7 @@
     bl.forEach(b => { if (b.type === 'road') b.tiles.forEach(i => roadSet.add(i)); });
     const nearRoad = b => b.tiles.some(i => { const t = T[i]; return N4.some(([dx, dy]) => { const x = t.x + dx, y = t.y + dy; return x >= 0 && y >= 0 && x < WORLD && y < WORLD && roadSet.has(idx(x, y)); }); });
 
-    // staffing: power, food, water, health/storage, schools, everything else
-    const prio = b => { const d = B[b.type]; return b.type === 'foodFarm' ? 0 : d.gen ? 1 : b.type === 'waterPlant' ? 2 : (b.type === 'hospital' || b.type === 'granary' || b.type === 'battery') ? 3 : b.type === 'school' ? 4 : 5; };
+    // staffing: each building has the people assigned to it
     const staffed = bl.filter(b => B[b.type].min).sort((a, b) => prio(a) - prio(b) || (+a.id.slice(1)) - (+b.id.slice(1)));
     let left = workforce, want = 0, jobs = 0, unstaffed = 0;
     // debt: buildings slow down at once; after 5 years in debt in a row the city cuts back hard (austerity)
@@ -716,18 +751,24 @@
       b._w = 0; b._eff = 0;
       if (b._dead) return;
       const n = d.perBlock ? b.tiles.length : 1, mn = d.min * n, mx = d.max * n;
-      b._mn = mn; b._mx = clamp(b.workers, mn, mx); want += b._mx;
+      b._mn = mn; b._mx = mx;
+      if (b.closed) return;
+      const wantN = b.want == null ? b.workers : b.want;
+      want += clamp(wantN, mn, mx);
+      b._w = b.workers >= mn ? Math.min(b.workers, mx) : 0;
+      if (!b._w) { unstaffed++; return; }
       live.push(b);
     });
-    // pass 1: every building gets its minimum crew, in priority order (food, power, water, services, schools, the rest)
-    const open = [];
-    live.sort((a, b) => prio(a) - prio(b) || (+a.id.slice(1)) - (+b.id.slice(1)));
-    live.forEach(b => {
-      if (left < b._mn) { unstaffed++; return; }
-      left -= b._mn; b._w = b._mn; open.push(b);
-    });
-    // pass 2: then up to the number of workers the team chose for it (b.workers)
-    for (const b of open) { const add = Math.min(left, b._mx - b._w); b._w += add; left -= add; }
+    // more people assigned than there are workers (people died or grew old): give up places in the least
+    // needed buildings first, first down to their minimum crew, then whole buildings; small crews last
+    let assigned = live.reduce((a, b) => a + b._w, 0), short = assigned - workforce;
+    if (short > 0) {
+      const shed = live.slice().sort((a, b) => SMALL_CREW(a) - SMALL_CREW(b) || prio(b) - prio(a) || (+b.id.slice(1)) - (+a.id.slice(1)));
+      for (const b of shed) { if (short <= 0) break; const cut = Math.min(short, b._w - b._mn); b._w -= cut; short -= cut; }
+      for (const b of shed) { if (short <= 0) break; short -= b._w; b._w = 0; unstaffed++; }
+    }
+    const open = live.filter(b => b._w > 0);
+    left = workforce - open.reduce((a, b) => a + b._w, 0);
     // output is proportional to the crew: half the maximum crew = half the output
     open.forEach(b => { jobs += b._w; const mx = B[b.type].max * (B[b.type].perBlock ? b.tiles.length : 1); b._eff = (b._w / Math.max(1, mx)) * debtMul; });
     const unemployed = Math.max(0, workforce - jobs);
@@ -775,7 +816,7 @@
       // power cuts hit factories and services hard, farms (irrigation pumps) less
       const pm = d.food || d.cat === 'agri' ? 0.7 + 0.3 * eR : powerMul;
       const eff = d.gen ? b._eff : b._eff * (d.min ? pm : 1) * (SKILLED[b.type] ? skill : 1);
-      maint += (d.maint || 0) * nAll;
+      maint += (d.maint || 0) * nAll * (b.closed ? 0.5 : 1);
       if (d.cap) cap += d.cap;
       if (d.food) food += d.food * eff * roadMul * (0.5 + 0.5 * Math.min(1.2, rain)) * foodPct;
       if (d.econ) { const e = d.econ * n * eff * roadMul * incPct; econ += e; if (d.on) econExtract += e; }
@@ -861,7 +902,8 @@
   // mode: 'grow' (Level 1→2: people change, no game over) or 'dyn' (game-over rules apply)
   function step(state, mode) {
     let f = flows(state);
-    // people who came of working age join understaffed buildings automatically
+    syncCrews(state);
+    // people who came of working age fill the empty places the team asked for
     if (autoAssign(state, f) > 0) f = flows(state);
     state.rain = f.rain;
     state.money += f.net;
@@ -869,10 +911,16 @@
     // water
     const wAvail = state.water + f.water;
     const waterR = f.waterDemand ? Math.min(1.5, wAvail / f.waterDemand) : 1;
-    state.water = Math.max(0, Math.min(f.waterCap, wAvail - f.waterDemand));
-    // the monsoon refills part of the empty reservoir every year (less in a dry year)
-    const refill = (f.waterCap - state.water) * 0.2 * Math.min(1, f.rain);
-    state.water = Math.min(f.waterCap, state.water + refill);
+    // this year's monsoon: the city's rain (forests up, pollution down) with good and bad years around it
+    const rainYear = rainOfYear(state, f.rain);
+    state.rainYear = rainYear;
+    // the reservoir only fills as far as this year's rain allows: about 80% in a normal year, less in a dry one,
+    // and whatever runs in beyond that spills over the dam; the monsoon also tops up part of what is missing
+    const fillTo = fillLevel(f.waterCap, rainYear);
+    state.water = Math.max(0, wAvail - f.waterDemand);
+    const refill = Math.max(0, fillTo - state.water) * 0.25 * Math.min(1.2, rainYear);
+    state.water = Math.min(fillTo, state.water + refill, f.waterCap);
+    state.fillTo = fillTo;
     state.tally.refill = (state.tally.refill || 0) + refill;
     // food with storage
     let foodR;
@@ -1212,7 +1260,7 @@
   }
 
   const api = {
-    SKILLED, K, B, BASE, HOUSING, HOUSE_UP, RES_PER_BLOCK, UNIT, SDGS, LEVELS, WORLD, PAUSES, CAP_YEARS, EVENTS, SHOCKS,
+    SKILLED, fillLevel, rainOfYear, closeBuilding, openBuilding, crewRange, K, B, BASE, HOUSING, HOUSE_UP, RES_PER_BLOCK, UNIT, SDGS, LEVELS, WORLD, PAUSES, CAP_YEARS, EVENTS, SHOCKS,
     idx, inLevel, newGame, canPlace, build, demolish, footprint, factoryPaths, maxPathSize, costOf, upgradeOptions, upgrade,
     flows, step, advance, startLevel, result, isDrought, labelFor, fmtMoney, outlook, rates, situations, resetTally,
     pausesFor, resolveEvent, applyEffects, blocksOf, eventView, severity, NEIGHBOUR, NEWC, defaultChoice, relevantEvent, eventMakesSense, choicesFor, setWorkers, autoAssign, beginEra, eraReport, ERA_W, L1_BUDGET, L1_CAPS, L1_FREE,

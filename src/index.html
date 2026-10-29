@@ -404,10 +404,11 @@ body { background: #9cc9e6; }
 .rapool { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-radius: 10px; background: var(--raise); margin: 10px 0; }
 .rapool b { font-family: var(--f-display); font-size: 24px; color: var(--sun); }
 .ralist { display: grid; gap: 6px; max-height: 46vh; overflow: auto; }
-.rarow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: #0f2333; }
+.rarow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: #0f2333; }
 .rarow.closed { border-color: rgba(239,91,76,.5); }
 .rarow b { font-family: var(--f-display); font-weight: 600; font-size: 14px; display: block; }
 .rarow small { color: var(--muted); font-size: 11.5px; }
+.rarow .raopen { width: auto !important; padding: 0 10px; font-size: 12px; font-family: var(--f-body); }
 .rarow .add { min-width: 54px; text-align: center; font-weight: 700; color: var(--leaf); }
 .rarow button { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise); font-size: 18px; line-height: 1; }
 .rarow button:disabled { opacity: .3; }
@@ -570,11 +571,11 @@ body { background: #9cc9e6; }
         <h3>Building</h3>
         <ul><li>Pick a building from the bar at the bottom, then click a block on the map.</li><li>Coal, gold, uranium and mineral blocks are scattered. Click one to see how much is in it. A factory covers 1 or more connected blocks: choose the size and press <b>Next path</b> (or R) to change the shape.</li><li>Farms and other buildings may use spare resource blocks, but to mine there later you must demolish them first.</li><li>Level 1 gives you a ₹50 L budget. Food and cash farms are free (up to 10 and 3); one coal plant of at most 2 blocks. From Level 2 you pay with what your city earned.</li><li><b>Upgrades (from Level 2):</b> Inspect a plant, mine or factory to grow it onto the next resource block. Each step costs more than the last and needs more workers, water and energy. Homes can add rooftop solar and rainwater harvesting.</li><li>Choose <b>Inspect &amp; demolish → Inspect</b> and click any building to see its workers, output and upgrades.</li></ul>
         <h3>Workers</h3>
-        <p>When you place a farm, plant or factory you choose how many workers it gets. A building makes output in proportion to its crew: half the workers, half the food, energy and money. Water use stays the same and smoke never falls below half, so a half-empty plant is poor value. Move workers any time with <b>Assign workers</b> under Jobs, or Inspect a building. Demolishing a building frees its workers. New workers from a growing city fill empty places on their own.</p>
+        <p>When you place a farm, plant or factory you choose how many workers it gets. A building makes output in proportion to its crew: half the workers, half the food, energy and money. Water use stays the same and smoke never falls below half, so a half-empty plant is poor value. Move workers any time with <b>Assign workers</b> under Jobs, or Inspect a building. People you take out of a building stay free until you place them. <b>Close</b> a building to free all its workers for now and <b>Open</b> it again when you have people; a closed building makes nothing and costs half its upkeep. Demolishing a building frees its workers. During the time jumps, new workers fill the empty places you asked for (never a building you closed).</p>
         <h3>People</h3>
         <p>Adults work; children eat but do not work; the elderly need care. Couples have 2 to 4 children whether or not there is food for them: fewer as schools and hospitals spread. If there is not enough food, people starve. People die of old age, and many more die of hunger, thirst, poverty (no work), slums (no homes) and polluted air. Hospitals help. Nobody moves to the island.</p>
         <h3>Rain</h3>
-        <p>Rain comes from your city: forests and empty land bring it, pollution drives it away. Farms, dams and rivers depend on it. Every year rain refills part of the empty reservoir (about a fifth in a normal monsoon), so the reservoir recovers if you stop over-using it.</p>
+        <p>Rain comes from your city: forests and empty land bring it, pollution drives it away. Farms, dams and rivers depend on it. Rain changes from year to year. It decides how full the reservoir can get: about 80% in a normal year, less in a dry one, and more water than that spills over the dam.</p>
         <h3>Time</h3>
         <p>After Level 1, <span class="jy">8</span> years pass. After Level 2, 50 years pass with a stop every 10 years: something happens and you have 90 seconds to choose. After Level 3 the city runs alone to year 500 with five big moments. Every team faces the same four shocks (monsoon failure, heatwave, disease, a fuel price crash) in a different order. A crisis hits at once: people die, money, water and food are lost, buildings can be destroyed. You see it in your numbers and as a red line on the graphs.</p>
         <h3>Neighbours remember</h3>

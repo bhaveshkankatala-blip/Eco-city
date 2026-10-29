@@ -263,9 +263,11 @@ function renderStats() {
   h.push(statRow('water', 'Water', fmt(f.water) + ' / yr', 'Used ' + fmt(f.waterDemand) + ' a year' + (rv.waste > 0.5 ? (rv.left > 0.02 ? ' · river dirty: ' + Math.round(rv.left * 100) + '% of factory waste untreated' : ' · river clean: all factory waste treated') : ''), waterNow < f.waterDemand));
   const rp = f.waterCap ? clamp(S.water / f.waterCap, 0, 1) : 0, rLow = rp < 0.2;
   h.push('<div class="stat res' + (rLow ? ' bad' : '') + '" title="Water stored in the reservoir"><div class="ic">' + ICON.water + '</div><div class="k">Reservoir</div><div class="v num">' + Math.round(rp * 100) + '%</div>' +
-    '<div class="tankbar' + (rLow ? ' low' : '') + '" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(rp * 100) + '"><i style="width:' + (rp * 100).toFixed(1) + '%"></i><span>' + fmt(S.water) + ' of ' + fmt(f.waterCap) + '</span></div></div>');
+    '<div class="tankbar' + (rLow ? ' low' : '') + '" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(rp * 100) + '"><i style="width:' + (rp * 100).toFixed(1) + '%"></i><span>' + fmt(S.water) + ' of ' + fmt(f.waterCap) + '</span></div>' +
+    '<div class="note">Rain fills it to about ' + Math.round(E.fillLevel(f.waterCap, S.rainYear || f.rain) / Math.max(1, f.waterCap) * 100) + '% a year; more rain, more water</div></div>');
   h.push(statRow('pol', 'Pollution', Math.round(S.pollution) + '%', 'Air quality', S.pollution > 75));
-  h.push(statRow('rain', 'Rain', Math.round(f.rain * 100) + '%', f.drought ? 'Drought: well below normal' : 'Of a normal monsoon', f.drought));
+  const ry = S.rainYear || f.rain;
+  h.push(statRow('rain', 'Rain', Math.round(ry * 100) + '%', (f.drought ? 'Drought: well below normal' : 'Of a normal monsoon this year') + ' · fills the reservoir, grows crops, turns dams', f.drought));
   $('statList').innerHTML = h.join('');
   const hb = $('holdBtn'); if (hb) hb.onclick = () => openWorkers(null);
   // top bar: births and deaths
@@ -349,8 +351,9 @@ function renderInspector() {
   if (d.min) {
     const fr = ui.flows ? ui.flows.unemployed : 0;
     staff = '<div class="crew"><label for="wk" class="wkl">Workers in this building: <b class="num" id="wkv">' + fmt(bd._w || 0) + '</b> of ' + fmt(d.max * n) + ' · <span id="wkpct">' + Math.round((bd._w || 0) / (d.max * n) * 100) + '%</span> output<span id="wkwait">' + crewWait(bd) + '</span></label>' +
-      '<input id="wk" type="range" min="' + d.min * n + '" max="' + d.max * n + '" step="' + (d.max * n <= 20 ? 1 : E.K) + '" value="' + Math.min(bd.workers, Math.max(d.min * n, bd._w || 0)) + '">' +
-      '<small>Fewer workers = every output of this building falls in proportion. People you take out become free workers (<b id="wkfree">' + fmt(fr) + '</b> free now). <a href="#" id="wkall">Assign workers across the city</a></small></div>';
+      (bd.closed ? '' : '<input id="wk" type="range" min="' + d.min * n + '" max="' + d.max * n + '" step="' + (d.max * n <= 20 ? 1 : E.K) + '" value="' + clamp(wantOf(bd), d.min * n, d.max * n) + '">') +
+      '<small>Fewer workers = every output of this building falls in proportion. People you take out become free workers (<b id="wkfree">' + fmt(fr) + '</b> free now) and stay free until you place them. <a href="#" id="wkall">Assign workers across the city</a></small>' +
+      '<button class="btn ghost" id="wkClose" style="margin-top:6px;width:100%">' + (bd.closed ? 'Open this building again (' + fmt(wantOf(bd)) + ' workers)' : 'Close this building for now (free its ' + fmt(bd._w || 0) + ' workers)') + '</button></div>';
   }
   // upgrade cards (Clash of Clans style)
   const ups = E.upgradeOptions(S, bd.id);
@@ -380,6 +383,7 @@ function renderInspector() {
     $('wkfree').textContent = fmt(ui.flows.unemployed); persist();
   };
   if ($('wkall')) $('wkall').onclick = e => { e.preventDefault(); openWorkers(null); };
+  if ($('wkClose')) $('wkClose').onclick = () => { toggleClosed(bd); refresh(false); persist(); };
   $('closeIns').onclick = () => { ui.sel = null; if (has3D) R3.select(null); refresh(); };
   $('demo').onclick = () => { const bt = bd.tiles.slice(); const freed = bd._w || 0; E.demolish(S, bd.id); ui.sel = null; if (has3D) { R3.select(null); R3.puff(bt); } toast(d.name + ' demolished. Water and money spent are not returned.'); afterDemolish(freed, d.name); };
   el.querySelectorAll('[data-up]').forEach(b => b.onclick = () => {
@@ -398,7 +402,8 @@ function afterDemolish(freed, name) {
   refresh(); persist();
   if (freed > 0 && S.phase === 'plan') openWorkers({ freed, name });
 }
-const crewWait = b => (b.workers > (b._w || 0) ? ' · ' + fmt(b.workers - (b._w || 0)) + ' more wanted, no free workers' : '');
+const wantOf = b => (b.want != null ? b.want : b.workers);
+const crewWait = b => (b.closed ? ' · closed by you' : wantOf(b) > (b._w || 0) ? ' · ' + fmt(wantOf(b) - (b._w || 0)) + ' places waiting for free workers' : '');
 let ra = null;
 function crewList() {
   E.flows(S);
@@ -410,7 +415,7 @@ function crewList() {
 function openWorkers(why) {
   ra = { rows: crewList() };
   $('raTitle').textContent = why ? fmt(why.freed) + ' workers lost their jobs' : 'Assign workers';
-  $('raLead').textContent = (why ? 'They worked at the ' + why.name + ' you demolished. ' : '') + 'Free workers have no job. Give them to a building with +, or take people out with − to free them. A building runs at the share of its full crew it has: half the workers, half the output. Below its minimum crew it closes.';
+  $('raLead').textContent = (why ? 'They worked at the ' + why.name + ' you demolished. ' : '') + 'Free workers have no job. Give them to a building with +, or take people out with − to free them: they stay free until you place them. Close a building to free all its workers for now, and open it again when you have people. A building runs at the share of its full crew it has: half the workers, half the output.';
   renderWorkers();
   $('reallocScreen').hidden = false;
 }
@@ -418,10 +423,12 @@ function renderWorkers() {
   const f = E.flows(S);
   $('raPool').textContent = fmt(f.unemployed);
   $('raList').innerHTML = ra.rows.map((c, k) => {
-    const w = c.b._w || 0, target = c.b.workers, pct = Math.round(w / c.mx * 100);
-    const closed = w < c.mn;
-    const canAdd = w < c.mx && f.unemployed > 0, canSub = Math.min(target, w) > c.mn;
-    return '<div class="rarow' + (closed ? ' closed' : '') + '" data-k="' + k + '"><div><b>' + B[c.b.type].name + '</b><small>' + (closed ? 'Closed · needs ' + fmt(c.mn) + ' workers' : fmt(w) + ' of ' + fmt(c.mx) + ' workers · ' + pct + '% output') + (target > w ? ' · ' + fmt(target - w) + ' places waiting for free workers' : '') + '</small></div>' +
+    const w = c.b._w || 0, target = wantOf(c.b), pct = Math.round(w / c.mx * 100), shut = !!c.b.closed;
+    const waiting = !shut && w < c.mn;
+    const canAdd = !shut && w < c.mx && f.unemployed > 0 && (w > 0 || f.unemployed >= c.mn), canSub = !shut && w > c.mn;
+    const status = shut ? 'Closed by you · opens with ' + fmt(target) + ' workers' : waiting ? 'Waiting · needs ' + fmt(c.mn) + ' free workers to open' : fmt(w) + ' of ' + fmt(c.mx) + ' workers · ' + pct + '% output' + (target > w ? ' · ' + fmt(target - w) + ' places waiting' : '');
+    return '<div class="rarow' + (shut || waiting ? ' closed' : '') + '" data-k="' + k + '"><div><b>' + B[c.b.type].name + '</b><small>' + status + '</small></div>' +
+      '<button data-a="close" class="raopen" title="' + (shut ? 'Open it again with free workers' : 'Close it for now and free its workers') + '">' + (shut ? 'Open' : 'Close') + '</button>' +
       '<button data-a="-" aria-label="Fewer workers"' + (canSub ? '' : ' disabled') + '>−</button><span class="add num">' + fmt(w) + '</span><button data-a="+" aria-label="More workers"' + (canAdd ? '' : ' disabled') + '>+</button></div>';
   }).join('') || '<p class="lead">No building needs workers yet.</p>';
 }
@@ -430,13 +437,18 @@ $('raList').addEventListener('click', e => {
   const c = ra.rows[+row.dataset.k];
   if (has3D) R3.select(c.b.id);
   if (!btn) return;
-  const f = E.flows(S);
-  // work from the people actually there (a building may be waiting for more than it has)
-  const now = Math.min(c.b.workers, c.b._w || 0);
-  if (btn.dataset.a === '+') E.setWorkers(S, c.b.id, now + Math.min(c.step, Math.max(1, f.unemployed)));
+  const f = E.flows(S), now = c.b._w || 0;
+  if (btn.dataset.a === 'close') toggleClosed(c.b);
+  else if (btn.dataset.a === '+') E.setWorkers(S, c.b.id, now ? now + Math.min(c.step, f.unemployed) : Math.min(c.mx, f.unemployed));
   else E.setWorkers(S, c.b.id, Math.max(c.mn, now - c.step));
   renderWorkers(); refresh(false, true); persist();
 });
+// close a building for now (its workers become free) or open it again (it takes free workers back)
+function toggleClosed(b) {
+  const name = B[b.type].name;
+  if (b.closed) { const got = E.openBuilding(S, b.id); toast(got ? name + ' is open again with ' + fmt(got) + ' workers.' : name + ' is open again, but it waits for ' + fmt(E.crewRange(b).mn) + ' free workers.'); }
+  else { const freed = E.closeBuilding(S, b.id); toast(name + ' closed for now. ' + fmt(freed) + ' workers are free to place elsewhere.'); }
+}
 function closeWorkers() {
   if (!ra) return;
   ra = null; $('reallocScreen').hidden = true; if (has3D) R3.select(null);
@@ -452,7 +464,7 @@ function askCrew(id, refund) {
   const b = S.buildings[id], d = B[b.type]; if (!d.min) return;
   const k = d.perBlock ? b.tiles.length : 1, mn = d.min * k, mx = d.max * k;
   if (ui.crewPref && ui.crewPref[b.type] != null && ui.crewPref.level === S.level) { E.setWorkers(S, id, Math.round(mn + (mx - mn) * ui.crewPref[b.type])); refresh(); persist(); return; }
-  const f = E.flows(S), free = f.unemployed + (b._w || 0);
+  const f = E.flows(S), free = f.unemployed + b.workers;
   const start = clamp(free, mn, mx);
   E.setWorkers(S, id, start);
   crewAsk = { id, mn, mx, step: mx <= 20 ? 1 : E.K, refund: refund || { cost: 0, wB: 0 } };
@@ -466,9 +478,9 @@ function askCrew(id, refund) {
 function renderCrew() {
   const b = S.buildings[crewAsk.id]; if (!b) return;
   const f = E.flows(S), w = b._w || 0, pct = Math.round(w / crewAsk.mx * 100);
-  $('cwVal').textContent = fmt(b.workers);
+  $('cwVal').textContent = fmt(b.want != null ? b.want : b.workers);
   $('cwInfo').innerHTML = 'Crew ' + fmt(crewAsk.mn) + '–' + fmt(crewAsk.mx) + '. This building will run at <b>' + pct + '%</b>: its food, energy and income are ' + pct + '% of the full amount, while its water use stays the same and its smoke falls only to half. Full crews give the best value.' +
-    (w < crewAsk.mn ? ' <b class="bad">Not enough free workers: it stays closed until you free some.</b>' : '') + '<br>Free workers left in the city: <b>' + fmt(f.unemployed) + '</b>';
+    (w < crewAsk.mn ? ' <b class="bad">Not enough free workers: it waits, closed, until ' + fmt(crewAsk.mn) + ' people are free (free some from other buildings, or the city grows).</b>' : (b.want > w ? ' <b class="bad">Only ' + fmt(w) + ' people are free now; the other ' + fmt(b.want - w) + ' places fill as the city grows.</b>' : '')) + '<br>Free workers left in the city: <b>' + fmt(f.unemployed) + '</b>';
 }
 $('cwRange').oninput = () => { E.setWorkers(S, crewAsk.id, +$('cwRange').value); renderCrew(); refresh(false, true); };
 $('cwOk').onclick = () => {

@@ -6,6 +6,13 @@ Read this before changing code. It is meant to save every agent (Claude, Gemini,
 - **Live build:** a Claude artifact. `dist/index.html` is what gets published.
 - **Game rules and numbers:** [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)
 
+## 0b. What changed in v8 (branch `v8`)
+
+- **Workers are real people:** `b.workers` = people assigned, `b.want` = the crew the team chose, `b.closed` = closed by the team. `build()` takes the crew from free workers (`fillFromFree`); a building with fewer free people than its minimum waits at 0. `flows()` no longer redistributes: freed people stay free (`unemployed`). If more people are assigned than exist, places are given up least-needed first, small crews (≤ 20, e.g. solar, wind) last; `step()` makes that permanent (`syncCrews`), then `autoAssign` fills empty places up to `want`, never in a closed building.
+- `closeBuilding` / `openBuilding` (inspector button and Close/Open in the workers panel). Closed buildings make nothing and cost half their upkeep.
+- **Rain:** `rainOfYear(state, rain)` varies 80%–120% by year (same per map); the reservoir fills only to `fillLevel(cap, rainYear)` (≈80% in a normal year), the rest spills.
+- Prices and crews: solar ₹6 L, wind ₹7 L, Food Crops 30–60 workers, Industrial Park 150–300.
+
 ## 0a. What changed in v7 (branch `v7`)
 
 - **Debt:** 4% interest a year (`flows().interest`); buildings at 90% while in debt, 75% after 5 years in a row (`austerity`); `streak.debt >= 20` in the final run = dead (`why: 'bankrupt'`); each round loses up to 25 points for years in debt (was 10).
